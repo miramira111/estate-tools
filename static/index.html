@@ -4036,7 +4036,7 @@
       }
     }
 
-    async function loadCustomers() {
+    async function loadCustomers(resetPage = true) {
       try {
         const params = new URLSearchParams();
         const staff = el("customerStaffFilter").value;
@@ -4056,7 +4056,15 @@
 
         const data = await apiFetch(url);
         customerState.customers = data.customers || [];
-        customerState.currentPage = 1;
+        if (resetPage) {
+          customerState.currentPage = 1;
+        } else {
+          // 現在のページが最大ページを超えていたら調整
+          const totalPages = Math.ceil(customerState.customers.length / customerState.perPage) || 1;
+          if (customerState.currentPage > totalPages) {
+            customerState.currentPage = totalPages;
+          }
+        }
 
         renderCustomerTable();
         renderCustomerPagination();
@@ -4437,7 +4445,7 @@
           await apiFetch(`/api/customers/${category}/${customerState.year}`, { method: "POST", body: JSON.stringify(payload) });
         }
         closeModal("modalCustomer");
-        await loadCustomers();
+        await loadCustomers(false);
       } catch (err) {
         alert("保存に失敗しました: " + (err.message || err));
       }
@@ -4450,7 +4458,7 @@
       try {
         await apiFetch(`/api/customers/${customerState.category}/${customerState.year}/${customerState.editingCustomer.id}`, { method: "DELETE" });
         closeModal("modalCustomerDetail");
-        await loadCustomers();
+        await loadCustomers(false);
       } catch (err) {
         alert("削除に失敗しました: " + (err.message || err));
       }
@@ -4461,7 +4469,7 @@
 
       try {
         await apiFetch(`/api/customers/${customerState.category}/${customerState.year}/${customerId}`, { method: "DELETE" });
-        await loadCustomers();
+        await loadCustomers(false);
       } catch (err) {
         alert("削除に失敗しました: " + (err.message || err));
       }
@@ -4481,7 +4489,7 @@
       try {
         const result = await apiFetch(`/api/customers/reassign/${customerState.category}/${customerState.year}`, { method: "POST" });
         alert(`${result.reassigned_count}件の案件番号を再採番しました`);
-        await loadCustomers();
+        await loadCustomers(false);
       } catch (err) {
         alert("再採番に失敗しました: " + (err.message || err));
       }
