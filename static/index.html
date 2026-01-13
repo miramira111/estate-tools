@@ -1795,6 +1795,8 @@
       contracts: [],
       closed: [],
       summary: [],
+      includeStaff: [],
+      staffOrder: [],
       notifications: [],
       statusColors: {},
       goals: { storeTarget: 0, staffTargets: {}, includeStaff: [] },
@@ -2078,6 +2080,8 @@
       state.contracts = [];
       state.closed = [];
       state.summary = [];
+      state.includeStaff = [];
+      state.staffOrder = [];
       showLogin();
     }
 
@@ -2190,7 +2194,10 @@
 
     async function loadSummary() {
       try {
-        state.summary = await apiFetch("/api/summary");
+        const res = await apiFetch("/api/summary");
+        state.summary = res.summary || [];
+        state.includeStaff = res.includeStaff || [];
+        state.staffOrder = res.staffOrder || [];
         renderChart();
         renderStaffSummary();
         renderGoalSummary();
@@ -4868,15 +4875,3 @@
   </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
