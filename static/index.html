@@ -2441,7 +2441,14 @@
       cancelMap.forEach((_, name) => names.add(name));
 
       const filteredNames = includeSet.size > 0 ? Array.from(includeSet) : Array.from(names);
-      filteredNames.sort((a, b) => a.localeCompare(b, "ja"));
+      // staffOrder に従って固定順でソート
+      const orderMap = new Map((state.staffOrder || []).map((n, i) => [n, i]));
+      filteredNames.sort((a, b) => {
+        const ai = orderMap.has(a) ? orderMap.get(a) : 9999;
+        const bi = orderMap.has(b) ? orderMap.get(b) : 9999;
+        if (ai !== bi) return ai - bi;
+        return a.localeCompare(b, "ja");
+      });
 
       const rows = [];
       filteredNames.forEach((name) => {
@@ -2493,7 +2500,15 @@
       state.summary.forEach((s) => names.add(s["担当"]));
       const rows = [];
       rows.push({ label: "店舗合計", key: "store", value: goals.storeTarget || 0, selectable: false });
-      Array.from(names).sort((a, b) => a.localeCompare(b, "ja")).forEach((name) => {
+      // staffOrder に従って固定順でソート
+      const orderMap = new Map((state.staffOrder || []).map((n, i) => [n, i]));
+      const sortedNames = Array.from(names).sort((a, b) => {
+        const ai = orderMap.has(a) ? orderMap.get(a) : 9999;
+        const bi = orderMap.has(b) ? orderMap.get(b) : 9999;
+        if (ai !== bi) return ai - bi;
+        return a.localeCompare(b, "ja");
+      });
+      sortedNames.forEach((name) => {
         rows.push({ label: name, key: name, value: Number(staffTargets[name]) || 0, selectable: true, checked: includeSet.size === 0 ? true : includeSet.has(name) });
       });
       body.innerHTML = rows.map((r) => `<tr>
@@ -4875,3 +4890,15 @@
   </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
