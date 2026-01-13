@@ -29,6 +29,9 @@ CONFIG_PATH = os.path.join(BASE_DIR, "config.env")
 LOCK_DURATION_MINUTES = 2
 DEFAULT_GOAL = {"storeTarget": 0, "staffTargets": {}, "includeStaff": []}
 
+# 担当者の表示順序（固定）
+STAFF_ORDER = ["小俣", "平石", "北口", "尾野"]
+
 
 def current_month_key():
     now = datetime.now()
@@ -1546,6 +1549,12 @@ def api_notifications():
 @app.route("/api/summary", methods=["GET"])
 @login_required
 def api_summary():
+    # includeStaff 設定を取得（表示/非表示制御用）
+    goals = load_goals_data()
+    month_key = normalize_month_key(request.args.get("month")) or current_month_key()
+    month_goal = get_goal_for_month(month_key, goals)
+    include_staff = month_goal.get("includeStaff", [])
+
     summary = {}
     for contract in load_all_contracts():
         if contract.get("取引状況") in ("成約", "中止", "買取"):
@@ -1560,16 +1569,39 @@ def api_summary():
         summary[staff][type_name] += 1
         summary[staff]["total"] += 1
 
+    # STAFF_ORDER に従って固定順でデータを作成
     data = []
+    added_staff = set()
+
+    # まず STAFF_ORDER の順番で追加
+    for staff in STAFF_ORDER:
+        if staff in summary:
+            counts = summary[staff]
+            data.append({
+                "担当": staff,
+                "専属": counts.get("専属", 0),
+                "専任": counts.get("専任", 0),
+                "一般": counts.get("一般", 0),
+                "total": counts.get("total", 0),
+            })
+            added_staff.add(staff)
+
+    # STAFF_ORDER に含まれない担当者を最後に追加
     for staff, counts in summary.items():
-        data.append({
-            "担当": staff,
-            "専属": counts.get("専属", 0),
-            "専任": counts.get("専任", 0),
-            "一般": counts.get("一般", 0),
-            "total": counts.get("total", 0),
-        })
-    return jsonify(data)
+        if staff not in added_staff:
+            data.append({
+                "担当": staff,
+                "専属": counts.get("専属", 0),
+                "専任": counts.get("専任", 0),
+                "一般": counts.get("一般", 0),
+                "total": counts.get("total", 0),
+            })
+
+    return jsonify({
+        "summary": data,
+        "includeStaff": include_staff,
+        "staffOrder": STAFF_ORDER
+    })
 
 
 # ------------------------------------------------------------
@@ -1599,6 +1631,7 @@ def api_goals():
             "default": goals.get("default", DEFAULT_GOAL),
             "annual": goals.get("annual", {}),
             "annualGoal": annual_goal,
+            "staffOrder": STAFF_ORDER,
         }
         response.update(goal)
         return jsonify(response)
@@ -1621,6 +1654,7 @@ def api_goals():
             "annual": goals.get("annual", {}),
             "monthly": goals.get("monthly", {}),
             "default": goals.get("default", DEFAULT_GOAL),
+            "staffOrder": STAFF_ORDER,
         }
         response.update(saved_goal)
         return jsonify(response)
@@ -1637,6 +1671,7 @@ def api_goals():
         "monthly": goals.get("monthly", {}),
         "annual": goals.get("annual", {}),
         "default": goals.get("default", DEFAULT_GOAL),
+        "staffOrder": STAFF_ORDER,
     }
     response.update(saved_goal)
     return jsonify(response)
@@ -1736,6 +1771,7 @@ def api_goal_progress():
         "monthly": monthly_response,
         "yearly": yearly_response,
         "annualGoals": goals.get("annual", {}),
+        "staffOrder": STAFF_ORDER,
     })
 
 
