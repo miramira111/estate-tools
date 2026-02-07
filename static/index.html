@@ -301,6 +301,54 @@
     .goal-progress { width: 100%; height: 10px; border-radius: 999px; background: var(--gray-200); overflow: hidden; }
     .goal-progress-bar { height: 100%; background: linear-gradient(90deg, #22c55e, #16a34a); }
     .goal-progress-text { margin-top: 6px; font-size: 12px; color: var(--gray-600); }
+    .trend-filter-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+    .manual-counter-list { display: grid; gap: 8px; }
+    .manual-counter-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border: 1px solid var(--gray-200);
+      border-radius: 8px;
+      padding: 8px 10px;
+      background: #fff;
+    }
+    .manual-counter-label { font-size: 13px; color: var(--gray-700); }
+    .manual-counter-controls { display: flex; align-items: center; gap: 8px; }
+    .manual-counter-value { min-width: 44px; text-align: center; font-weight: 700; color: var(--gray-900); }
+    .manual-counter-btn {
+      width: 26px;
+      height: 26px;
+      border: 1px solid var(--gray-300);
+      background: #fff;
+      color: var(--gray-800);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .manual-counter-btn:hover { background: var(--gray-100); }
+    .staff-trend-stack { display: grid; gap: 10px; }
+    .staff-trend-card { border: 1px solid var(--gray-200); border-radius: 8px; padding: 10px; background: #fff; }
+    .staff-trend-card h4 { margin: 0 0 8px 0; font-size: 14px; color: var(--gray-900); }
+    .monthly-trend-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px 0; }
+    .monthly-trend-tab {
+      border: 1px solid var(--gray-300);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--gray-700);
+      font-size: 12px;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+    .monthly-trend-tab.active {
+      background: var(--primary-color);
+      border-color: var(--primary-color);
+      color: #fff;
+    }
 
     /* Alert */
     .alert-banner { display: flex; align-items: center; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; border: 1px solid #fcd34d; background: #fffbeb; gap: 12px; }
@@ -561,6 +609,7 @@
         <li class="menu-item" data-page="closed-contracted"><span class="icon">✅</span><span>成約リスト</span></li>
         <li class="menu-item" data-page="closed-purchased"><span class="icon">💰</span><span>買取リスト</span></li>
         <li class="menu-item" data-page="closed-canceled"><span class="icon">⛔</span><span>中止リスト</span></li>
+        <li class="menu-item" data-page="closed-other"><span class="icon">🗂️</span><span>一般他社他決</span></li>
         <li class="menu-item" data-page="by-staff"><span class="icon">👤</span><span>担当別管理</span></li>
         <li class="menu-item" data-page="settings"><span class="icon">⚙️</span><span>設定</span></li>
         <li class="menu-item" data-page="admin"><span class="icon">🗑️</span><span>削除管理</span></li>
@@ -631,6 +680,19 @@
               </div>
             </div>
           </div>
+          <div class="section-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+              <h3 class="section-title" style="margin:0;">担当別・媒介種別 月次推移</h3>
+              <div class="trend-filter-row" style="margin:0;">
+                <select class="filter-select" id="staffMonthlyTrendRange" style="min-width:120px;">
+                  <option value="12">直近12ヶ月</option>
+                  <option value="24">直近24ヶ月</option>
+                  <option value="0">全期間</option>
+                </select>
+              </div>
+            </div>
+            <div class="staff-trend-stack" id="staffMonthlyTrendPanels"></div>
+          </div>
           <div class="goal-card" id="goalSummaryCard">
             <div class="goal-header">
               <h3 class="goal-title">月間目標達成状況</h3>
@@ -638,6 +700,10 @@
             </div>
             <div class="goal-overview" id="goalOverview"></div>
             <div class="goal-progress-list" id="goalStaffList"></div>
+            <div id="manualAdjustDashboardWrap" style="margin-top:12px;display:none;">
+              <div class="goal-pill" style="margin-bottom:8px;">手動カウント（ダッシュボード）: +/-で即時保存</div>
+              <div class="manual-counter-list" id="manualAdjustDashboardBody"></div>
+            </div>
           </div>
 
           <div class="alert-banner" id="alertBanner">
@@ -667,6 +733,14 @@
               <button class="btn btn-outline" id="btnLockManageTop">🔓 ロック解除</button>
               <button class="btn btn-outline" id="btnExportDashboard">📤 CSV出力</button>
             </div>
+          </div>
+
+          <div class="section-card" id="manualAdjustContractsWrap" style="display:none;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+              <h3 class="section-title" style="margin:0;">手動カウント（媒介契約一覧）</h3>
+              <span class="stats-subtitle">+/-操作は即時Supabaseへ保存されます</span>
+            </div>
+            <div class="manual-counter-list" id="manualAdjustContractsBody"></div>
           </div>
 
           <div class="table-container">
@@ -878,6 +952,18 @@
               <button class="btn btn-primary" id="btnSaveGoals">保存</button>
             </div>
             <div class="goal-pill" style="margin-bottom:8px;">目標値は今月の媒介件数（一般・専任・専属合計）で管理します</div>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:8px;">
+              <input type="checkbox" id="goalCarryOverEnabled">
+              前月の上振れ/未達を今月目標に繰り越す
+            </label>
+            <div class="goal-pill" id="goalCarryOverHint" style="margin-bottom:8px;display:none;"></div>
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+              <label for="goalProgressMode" style="font-size:13px;">達成カウント方式</label>
+              <select class="filter-select" id="goalProgressMode" style="min-width:160px;">
+                <option value="auto">自動（案件連動）</option>
+                <option value="manual">手動入力</option>
+              </select>
+            </div>
             <table class="goal-settings-table">
               <thead>
                 <tr>
@@ -888,6 +974,66 @@
               </thead>
               <tbody id="goalSettingsBody"></tbody>
             </table>
+            <div id="goalManualSalesWrap" style="margin-top:12px;display:none;">
+              <div class="goal-pill" style="margin-bottom:8px;">手動入力した件数を、目標達成カウントとして利用します</div>
+              <table class="goal-settings-table">
+                <thead>
+                  <tr>
+                    <th style="min-width:160px;">区分</th>
+                    <th>達成件数（手動）</th>
+                  </tr>
+                </thead>
+                <tbody id="goalSalesBody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="section-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;flex-wrap:wrap;">
+              <h3 class="section-title" style="margin:0;">月次目標進捗（保存履歴）</h3>
+              <span class="stats-subtitle" id="goalProgressUpdatedAt"></span>
+            </div>
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>月</th>
+                    <th>方式</th>
+                    <th>持越開始</th>
+                    <th>当月実績</th>
+                    <th>進捗（持越込）</th>
+                    <th>目標</th>
+                    <th>残り</th>
+                    <th>次月持越</th>
+                  </tr>
+                </thead>
+                <tbody id="goalProgressHistoryBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <section id="page-closed-other" class="page-section">
+          <h2 class="page-title">一般他社他決</h2>
+          <div class="section-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+              <h3 class="section-title" style="margin:0;">一般他社他決</h3>
+              <input type="text" class="search-input" id="closedSearchOther" placeholder="検索 (媒介No./担当/所在地など)">
+            </div>
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>媒介No.</th>
+                    <th>担当</th>
+                    <th>種別</th>
+                    <th>物件所在地（市町村から）</th>
+                    <th>他決情報</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="closedOtherBody"></tbody>
+              </table>
+            </div>
           </div>
         </section>
 
@@ -1285,6 +1431,14 @@
             <div class="form-group"><label>成約登録日</label><input type="date" name="closeRegDate"></div>
           </div>
         </div>
+        <!-- 他決情報（他決時のみ表示） -->
+        <div id="otherInfoSection" style="display:none; margin-top:12px; padding:12px; background:#eff6ff; border-radius:8px; border:1px solid #60a5fa;">
+          <p style="margin:0 0 12px; font-weight:600; color:#1d4ed8;">📌 他決情報</p>
+          <div class="form-grid">
+            <div class="form-group"><label>他決日</label><input type="date" name="otherDate"></div>
+            <div class="form-group"><label>他決理由</label><input name="otherReason"></div>
+          </div>
+        </div>
         <!-- 中止情報（中止時のみ表示） -->
         <div id="cancelInfoSection" style="display:none; margin-top:12px; padding:12px; background:#f3f4f6; border-radius:8px; border:1px solid #9ca3af;">
           <p style="margin:0 0 12px; font-weight:600; color:#374151;">⛔ 中止情報</p>
@@ -1301,6 +1455,7 @@
             <button type="button" class="btn btn-outline" data-edit-action="change">変更</button>
             <button type="button" class="btn btn-outline" data-edit-action="close">成約</button>
             <button type="button" class="btn btn-outline" data-edit-action="purchase">買取</button>
+            <button type="button" class="btn btn-outline" data-edit-action="other">他決</button>
             <button type="button" class="btn btn-outline" data-edit-action="cancel">中止</button>
             <button type="button" class="btn btn-outline" data-edit-action="delete">削除</button>
           </div>
@@ -1511,6 +1666,28 @@
     </div>
   </div>
 
+  <!-- 他決モーダル -->
+  <div class="modal-backdrop hidden" id="modalOther">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">他決登録</h3>
+        <button class="modal-close" data-close="modalOther">×</button>
+      </div>
+      <form id="otherForm">
+        <div class="form-grid">
+          <div class="form-group"><label>媒介No.</label><input name="id" readonly></div>
+          <div class="form-group"><label>物件名 / 所在地</label><input name="address" readonly></div>
+          <div class="form-group"><label>他決日 *</label><input type="date" name="otherDate" required></div>
+        </div>
+        <div class="form-group"><label>他決理由</label><textarea name="otherReason"></textarea></div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" data-close="modalOther">キャンセル</button>
+          <button type="submit" class="btn btn-primary">登録する</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- 通知モーダル（ログイン時ポップアップ） -->
   <div class="modal-backdrop hidden" id="modalNotifications">
     <div class="modal" style="max-width: 600px;">
@@ -1561,13 +1738,14 @@
 
   <!-- 月次推移モーダル -->
   <div class="modal-backdrop hidden" id="modalMonthlyTrend">
-    <div class="modal" style="max-width: 500px;">
+    <div class="modal" style="max-width: 560px;">
       <div class="modal-header">
         <h3 class="modal-title">月次推移</h3>
         <button class="modal-close" data-close="modalMonthlyTrend">×</button>
       </div>
       <div class="modal-body">
-        <p class="stats-subtitle" style="margin: 0 0 12px 0;">最古の月から最新までの件数を表示します。</p>
+        <p class="stats-subtitle" style="margin: 0 0 12px 0;">年度タブで切り替えて表示できます。</p>
+        <div class="monthly-trend-tabs" id="monthlyTrendYearTabs"></div>
         <div class="table-container" style="max-height: 360px; overflow-y: auto;">
           <table>
             <thead>
@@ -1774,6 +1952,7 @@
       reinsChanged: "レインズ変更済み",
       reinsChangeDate: "レインズ変更日",
       closeInfo: "成約情報",
+      otherInfo: "他決情報",
       purchaseInfo: "買取情報",
       cancelInfo: "中止理由",
     };
@@ -1784,11 +1963,27 @@
       "売主都合で一時紹介停止中": { bg: "#fee2e2", color: "#991b1b" },
       "成約": { bg: "#d1fae5", color: "#065f46" },
       "買取": { bg: "#ede9fe", color: "#6b21a8" },
+      "他決": { bg: "#e0f2fe", color: "#0c4a6e" },
       "中止": { bg: "#e5e7eb", color: "#374151" },
     };
 
     const KEYBOX_LABEL = "ｷｰﾎﾞｯｸｽ";
     const KEYBOX_OLD_LABEL = "キーボックス";
+    const DEFAULT_GOAL_STATE = { storeTarget: 0, staffTargets: {}, includeStaff: [], carryOverEnabled: false, progressMode: "auto" };
+    const DEFAULT_GOAL_CARRY = {
+      enabled: false,
+      storeAdjustment: 0,
+      staffAdjustments: {},
+      storeAutoCarry: 0,
+      storeManualAdjust: 0,
+      storeCarryIn: 0,
+      storeCarryOut: 0,
+      staffAutoCarry: {},
+      staffManualAdjust: {},
+      staffCarryIn: {},
+      staffCarryOut: {},
+    };
+    const DEFAULT_SALES_STATE = { store: 0, staff: {} };
 
     const state = {
       masters: {},
@@ -1799,7 +1994,12 @@
       staffOrder: [],
       notifications: [],
       statusColors: {},
-      goals: { storeTarget: 0, staffTargets: {}, includeStaff: [] },
+      goals: { ...DEFAULT_GOAL_STATE },
+      goalBase: { ...DEFAULT_GOAL_STATE },
+      goalCarryOver: { ...DEFAULT_GOAL_CARRY },
+      sales: { ...DEFAULT_SALES_STATE },
+      goalProgress: { updatedAt: "", monthly: {}, yearly: {} },
+      monthlyTrendYear: "",
       currentUser: null,
       loginId: null,
       filters: { staff: "", status: "", from: "", to: "", query: "", closedOnly: false },
@@ -1807,6 +2007,7 @@
       editingId: null,
       chart: null,
     };
+    let salesSaveQueue = Promise.resolve();
 
     const el = (id) => document.getElementById(id);
 
@@ -1851,6 +2052,7 @@
       el("btnLockManageTop").addEventListener("click", openLockModal);
       el("alertDetailBtn").addEventListener("click", renderAlertDetailModal);
       el("btnMonthlyTrend").addEventListener("click", renderMonthlyTrendModal);
+      el("staffMonthlyTrendRange").addEventListener("change", renderStaffMonthlyTrendTable);
       el("loginForm").addEventListener("submit", handleLogin);
       el("contractForm").addEventListener("submit", submitContract);
       el("updateForm").addEventListener("submit", submitUpdate);
@@ -1858,6 +2060,7 @@
       el("purchaseForm").addEventListener("submit", submitPurchase);
       el("closeForm").addEventListener("submit", submitClose);
       el("cancelForm").addEventListener("submit", submitCancel);
+      el("otherForm").addEventListener("submit", submitOther);
       el("newPurchaseForm").addEventListener("submit", submitNewPurchase);
       el("mastersForm").addEventListener("submit", submitMasters);
       el("statusColorsForm").addEventListener("submit", submitStatusColors);
@@ -1871,6 +2074,9 @@
       if (openGoalBtn) openGoalBtn.addEventListener("click", () => { activateMenu("settings"); showPage("settings"); });
       const saveGoalsBtn = el("btnSaveGoals");
       if (saveGoalsBtn) saveGoalsBtn.addEventListener("click", saveGoals);
+      const progressMode = el("goalProgressMode");
+      if (progressMode) progressMode.addEventListener("change", updateGoalManualSalesVisibility);
+      document.addEventListener("click", handleManualCounterClick);
       
       // 鍵の場所：ｷｰﾎﾞｯｸｽ選択時に番号入力欄を表示
       el("formKeyLocation").addEventListener("change", (e) => {
@@ -1888,6 +2094,7 @@
         const status = e.target.value;
         el("offerSection").style.display = status === "書面による購入申込みあり" ? "block" : "none";
         el("closeInfoSection").style.display = status === "成約" ? "block" : "none";
+        el("otherInfoSection").style.display = status === "他決" ? "block" : "none";
         el("cancelInfoSection").style.display = status === "中止" ? "block" : "none";
       });
       
@@ -1970,7 +2177,7 @@
         });
       });
 
-      ["closedSearchContracted", "closedSearchPurchased", "closedSearchCanceled"].forEach((id) => {
+      ["closedSearchContracted", "closedSearchPurchased", "closedSearchCanceled", "closedSearchOther"].forEach((id) => {
         const input = el(id);
         if (input) input.addEventListener("input", renderClosedTable);
       });
@@ -2028,7 +2235,7 @@
       }
       if (page === "deadline") renderDeadlineTable();
       if (page === "register") renderRegisterTable();
-      if (page === "closed" || page === "closed-contracted" || page === "closed-canceled" || page === "closed-purchased") renderClosedTable();
+      if (page === "closed" || page === "closed-contracted" || page === "closed-canceled" || page === "closed-purchased" || page === "closed-other") renderClosedTable();
       if (page === "by-staff") {
         renderStaffSummary();
         renderByStaffTables();
@@ -2082,11 +2289,14 @@
       state.summary = [];
       state.includeStaff = [];
       state.staffOrder = [];
+      state.sales = { ...DEFAULT_SALES_STATE };
+      state.goalProgress = { updatedAt: "", monthly: {}, yearly: {} };
+      state.monthlyTrendYear = "";
       showLogin();
     }
 
     async function loadAll() {
-      await Promise.all([loadMasters(), loadContracts(), loadSummary(), loadStatusColors(), loadGoals()]);
+      await Promise.all([loadMasters(), loadContracts(), loadSummary(), loadStatusColors(), loadGoals(), loadSales(), loadGoalProgress()]);
       renderFilters();
       renderStats();
       renderAlert();
@@ -2142,6 +2352,7 @@
         reinsChanged: raw[K.reinsChanged] ?? false,
         reinsChangeDate: raw[K.reinsChangeDate] || "",
         closeInfo: raw[K.closeInfo] || null,
+        otherInfo: raw[K.otherInfo] || null,
         purchaseInfo: raw[K.purchaseInfo] || null,
         cancelInfo: raw[K.cancelInfo] || null,
         source_file: raw.source_file,
@@ -2175,14 +2386,167 @@
       base[K.reinsChanged] = updates.reinsChanged ?? norm?.reinsChanged ?? base[K.reinsChanged] ?? false;
       base[K.reinsChangeDate] = updates.reinsChangeDate ?? norm?.reinsChangeDate ?? base[K.reinsChangeDate] ?? "";
       base[K.closeInfo] = updates.closeInfo ?? norm?.closeInfo ?? base[K.closeInfo] ?? null;
+      base[K.otherInfo] = updates.otherInfo ?? norm?.otherInfo ?? base[K.otherInfo] ?? null;
       base[K.purchaseInfo] = updates.purchaseInfo ?? norm?.purchaseInfo ?? base[K.purchaseInfo] ?? null;
       base[K.cancelInfo] = updates.cancelInfo ?? norm?.cancelInfo ?? base[K.cancelInfo] ?? null;
       return base;
     }
 
+    function applyGoalsResponse(res) {
+      const effectiveGoal = (res && res.goal) ? res.goal : res || {};
+      state.goals = { ...DEFAULT_GOAL_STATE, ...effectiveGoal };
+      state.goalBase = { ...DEFAULT_GOAL_STATE, ...(res && res.baseGoal ? res.baseGoal : state.goals) };
+      state.goalCarryOver = { ...DEFAULT_GOAL_CARRY, ...(res && res.carryOver ? res.carryOver : {}) };
+      if (res && Array.isArray(res.staffOrder) && res.staffOrder.length) state.staffOrder = res.staffOrder;
+    }
+
+    function normalizeSalesState(rec) {
+      const out = { ...DEFAULT_SALES_STATE, staff: {} };
+      if (!rec || typeof rec !== "object") return out;
+      const storeVal = Number(rec.store || 0);
+      out.store = Number.isNaN(storeVal) ? 0 : Math.max(0, storeVal);
+      const staff = rec.staff || {};
+      Object.keys(staff).forEach((name) => {
+        const val = Number(staff[name] || 0);
+        out.staff[name] = Number.isNaN(val) ? 0 : Math.max(0, val);
+      });
+      if (!out.store && Object.keys(out.staff).length) {
+        out.store = Object.values(out.staff).reduce((sum, val) => sum + Number(val || 0), 0);
+      }
+      return out;
+    }
+
+    function applySalesResponse(res) {
+      const src = (res && res.monthSales) ? res.monthSales : res || {};
+      state.sales = normalizeSalesState(src);
+    }
+
+    function getManualSalesRows() {
+      const sales = state.sales || DEFAULT_SALES_STATE;
+      const names = new Set();
+      (state.masters["担当"] || []).forEach((n) => names.add(n));
+      (state.summary || []).forEach((s) => names.add(s["担当"]));
+      Object.keys((state.goalBase?.staffTargets) || {}).forEach((n) => names.add(n));
+      Object.keys((sales.staff || {})).forEach((n) => names.add(n));
+      const sortedNames = getSortedStaffNames(names);
+      const rows = [{ label: "店舗合計", key: "store", value: Number(sales.store || 0) }];
+      sortedNames.forEach((name) => rows.push({ label: name, key: name, value: Number((sales.staff || {})[name] || 0) }));
+      return rows;
+    }
+
+    function renderManualCounterRows(containerId) {
+      const container = el(containerId);
+      if (!container) return;
+      const rows = getManualSalesRows();
+      container.innerHTML = rows.map((r) => `<div class="manual-counter-row">
+          <span class="manual-counter-label">${escapeHtml(r.label)}</span>
+          <div class="manual-counter-controls">
+            <button type="button" class="manual-counter-btn" data-manual-key="${escapeHtml(r.key)}" data-manual-delta="-1" aria-label="${escapeHtml(r.label)}を1減らす">-</button>
+            <span class="manual-counter-value">${r.value}</span>
+            <button type="button" class="manual-counter-btn" data-manual-key="${escapeHtml(r.key)}" data-manual-delta="1" aria-label="${escapeHtml(r.label)}を1増やす">+</button>
+          </div>
+        </div>`).join("");
+    }
+
+    function renderManualAdjustPanels() {
+      const isManualMode = (state.goals || DEFAULT_GOAL_STATE).progressMode === "manual";
+      const dashboardWrap = el("manualAdjustDashboardWrap");
+      const contractsWrap = el("manualAdjustContractsWrap");
+      if (dashboardWrap) dashboardWrap.style.display = isManualMode ? "block" : "none";
+      if (contractsWrap) contractsWrap.style.display = isManualMode ? "block" : "none";
+      if (!isManualMode) return;
+      renderManualCounterRows("manualAdjustDashboardBody");
+      renderManualCounterRows("manualAdjustContractsBody");
+    }
+
+    function queueSalesSave(payload, previousSales) {
+      salesSaveQueue = salesSaveQueue
+        .catch(() => {})
+        .then(async () => {
+          const res = await apiFetch("/api/sales", { method: "PUT", body: JSON.stringify(payload) });
+          applySalesResponse(res);
+          await loadGoalProgress();
+          renderGoalSummary();
+          renderGoalSettingsForm();
+          renderManualAdjustPanels();
+          renderGoalProgressHistory();
+        })
+        .catch((err) => {
+          state.sales = previousSales;
+          renderGoalSummary();
+          renderGoalSettingsForm();
+          renderManualAdjustPanels();
+          renderGoalProgressHistory();
+          alert("手動件数の保存に失敗しました");
+          console.error(err);
+        });
+      return salesSaveQueue;
+    }
+
+    function isManualCounterEnabled() {
+      if ((state.goals || DEFAULT_GOAL_STATE).progressMode === "manual") return true;
+      const selectMode = el("goalProgressMode")?.value;
+      return selectMode === "manual";
+    }
+
+    function handleManualCounterClick(e) {
+      const btn = e.target.closest("button[data-manual-delta][data-manual-key]");
+      if (!btn) return;
+      if (!isManualCounterEnabled()) return;
+      e.preventDefault();
+      const key = btn.dataset.manualKey || "";
+      const delta = Number(btn.dataset.manualDelta || 0);
+      if (!key || !delta || Number.isNaN(delta)) return;
+
+      const previousSales = normalizeSalesState(state.sales);
+      const nextSales = normalizeSalesState(state.sales);
+      if (key === "store") {
+        nextSales.store = Math.max(0, Number(nextSales.store || 0) + delta);
+      } else {
+        const current = Number((nextSales.staff || {})[key] || 0);
+        nextSales.staff[key] = Math.max(0, current + delta);
+        nextSales.store = Math.max(0, Number(nextSales.store || 0) + delta);
+      }
+      state.sales = nextSales;
+      renderGoalSummary();
+      renderGoalSettingsForm();
+      renderManualAdjustPanels();
+      queueSalesSave({ store: nextSales.store, staff: nextSales.staff }, previousSales);
+    }
+
     async function loadMasters() { try { state.masters = await apiFetch("/api/masters"); } catch (err) { console.error(err); } }
     async function loadStatusColors() { try { state.statusColors = await apiFetch("/api/status-colors"); } catch (err) { console.error(err); } }
-    async function loadGoals() { try { state.goals = await apiFetch("/api/goals"); } catch (err) { console.error(err); } }
+    async function loadGoals() {
+      try {
+        const res = await apiFetch("/api/goals");
+        applyGoalsResponse(res);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function loadSales() {
+      try {
+        const res = await apiFetch("/api/sales");
+        applySalesResponse(res);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function loadGoalProgress(refresh = true) {
+      try {
+        const query = refresh ? "?refresh=1" : "";
+        const res = await apiFetch(`/api/goals/progress${query}`);
+        state.goalProgress = {
+          updatedAt: res?.updatedAt || "",
+          monthly: res?.monthly || {},
+          yearly: res?.yearly || {},
+        };
+      } catch (err) {
+        console.error(err);
+      }
+    }
 
     async function loadContracts() {
       try {
@@ -2276,6 +2640,9 @@
         const value = (id === "formKeyLocation" && item === KEYBOX_OLD_LABEL) ? KEYBOX_LABEL : item;
         select.insertAdjacentHTML("beforeend", `<option value="${value}">${value}</option>`);
       });
+      if (id === "formStatus" && !Array.from(select.options).some((opt) => opt.value === "他決")) {
+        select.insertAdjacentHTML("beforeend", `<option value="他決">他決</option>`);
+      }
     }
 
     function formatDateDisplay(value) { return value ? value.replaceAll("-", "/") : "-"; }
@@ -2339,6 +2706,10 @@
           const entry = ensureEntry(parseMonthFromDateStr(c.cancelInfo?.中止日 || c.statusDate));
           if (entry) entry.cancel += 1;
         }
+        if (c.status === "他決") {
+          const entry = ensureEntry(parseMonthFromDateStr(c.otherInfo?.他決日 || c.statusDate));
+          if (entry) entry.cancel += 1;
+        }
       });
       const sorted = Array.from(map.values()).sort((a, b) => {
         if (a.parsed.year !== b.parsed.year) return a.parsed.year - b.parsed.year;
@@ -2348,6 +2719,8 @@
       return sorted.map((entry) => {
         inventory = inventory + entry.add - entry.contract - entry.purchase - entry.cancel;
         return {
+          year: entry.parsed.year,
+          month: entry.parsed.month,
           label: `${entry.parsed.year}年${String(entry.parsed.month).padStart(2, "0")}月`,
           add: entry.add,
           contract: entry.contract,
@@ -2358,8 +2731,112 @@
       });
     }
 
+    function normalizeBrokerageType(typeName) {
+      const raw = String(typeName || "").trim();
+      if (!raw) return null;
+      if (raw === "専属_専任" || raw === "専属_専任媒介") return "専属";
+      if (raw.includes("専属")) return "専属";
+      if (raw.includes("専任")) return "専任";
+      if (raw.includes("一般")) return "一般";
+      return null;
+    }
+
+    function getSortedStaffNames(staffNames) {
+      const orderMap = new Map((state.staffOrder || []).map((n, i) => [n, i]));
+      return Array.from(staffNames).filter(Boolean).sort((a, b) => {
+        const ai = orderMap.has(a) ? orderMap.get(a) : 9999;
+        const bi = orderMap.has(b) ? orderMap.get(b) : 9999;
+        if (ai !== bi) return ai - bi;
+        return String(a).localeCompare(String(b), "ja");
+      });
+    }
+
+    function buildStaffMonthlyTrendByStaff() {
+      const staffMap = new Map();
+      const all = [...state.contracts, ...state.closed];
+      all.forEach((c) => {
+        const parsed = parseMonthKey(c.raw?.source_file || c.source_file);
+        if (!parsed) return;
+        const staff = c.staff || "未設定";
+        const normalizedType = normalizeBrokerageType(c.type);
+        if (!normalizedType) return;
+        const monthKey = `${parsed.year}-${String(parsed.month).padStart(2, "0")}`;
+        if (!staffMap.has(staff)) staffMap.set(staff, new Map());
+        const monthMap = staffMap.get(staff);
+        if (!monthMap.has(monthKey)) {
+          monthMap.set(monthKey, {
+            monthKey,
+            monthLabel: `${parsed.year}年${String(parsed.month).padStart(2, "0")}月`,
+            senzoku: 0,
+            senin: 0,
+            ippan: 0,
+            total: 0,
+          });
+        }
+        const row = monthMap.get(monthKey);
+        if (normalizedType === "専属") row.senzoku += 1;
+        if (normalizedType === "専任") row.senin += 1;
+        if (normalizedType === "一般") row.ippan += 1;
+        row.total += 1;
+      });
+
+      const result = {};
+      staffMap.forEach((monthMap, staff) => {
+        result[staff] = Array.from(monthMap.values()).sort((a, b) => b.monthKey.localeCompare(a.monthKey, "ja"));
+      });
+      return result;
+    }
+
+    function renderStaffMonthlyTrendTable() {
+      const panels = el("staffMonthlyTrendPanels");
+      if (!panels) return;
+      const grouped = buildStaffMonthlyTrendByStaff();
+      const staffNames = getSortedStaffNames(new Set(Object.keys(grouped)));
+      if (!staffNames.length) {
+        panels.innerHTML = `<div class="staff-trend-card"><div style="text-align:center;padding:16px;color:var(--gray-500);">データがありません</div></div>`;
+        return;
+      }
+      const allMonthOrder = [...new Set(staffNames.flatMap((name) => (grouped[name] || []).map((r) => r.monthKey)))].sort((a, b) => b.localeCompare(a, "ja"));
+      const rangeLimit = Number(el("staffMonthlyTrendRange")?.value || 12);
+      const allowedMonths = rangeLimit > 0 ? new Set(allMonthOrder.slice(0, rangeLimit)) : null;
+
+      const cards = [];
+      staffNames.forEach((staff) => {
+        let rows = grouped[staff] || [];
+        if (allowedMonths) rows = rows.filter((r) => allowedMonths.has(r.monthKey));
+        if (!rows.length) return;
+        cards.push(`<div class="staff-trend-card">
+            <h4>${escapeHtml(staff)}</h4>
+            <div class="table-container" style="max-height:220px;overflow-y:auto;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>月</th>
+                    <th>専属</th>
+                    <th>専任</th>
+                    <th>一般</th>
+                    <th>合計</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${rows.map((r) => `<tr>
+                      <td>${r.monthLabel}</td>
+                      <td>${r.senzoku}件</td>
+                      <td>${r.senin}件</td>
+                      <td>${r.ippan}件</td>
+                      <td>${r.total}件</td>
+                    </tr>`).join("")}
+                </tbody>
+              </table>
+            </div>
+          </div>`);
+      });
+      panels.innerHTML = cards.length ? cards.join("") : `<div class="staff-trend-card"><div style="text-align:center;padding:16px;color:var(--gray-500);">データがありません</div></div>`;
+    }
+
     function renderStats() {
       el("inventoryCount").textContent = state.contracts.length;
+      renderStaffMonthlyTrendTable();
     }
 
     function renderAlert() {
@@ -2404,20 +2881,14 @@
       container.innerHTML = state.summary.map((s) => `<div class="staff-summary-row">${s["担当"]}の媒介件数${s.total}件 / 一般${s["一般"] || 0}件 専任${s["専任"] || 0}件 専属${s["専属"] || 0}件</div>`).join("");
     }
 
-    function renderGoalSummary() {
-      const overview = el("goalOverview");
-      const list = el("goalStaffList");
-      if (!overview || !list) return;
-      const goals = state.goals || { storeTarget: 0, staffTargets: {}, includeStaff: [] };
-      const storeTarget = Number(goals.storeTarget) || 0;
-      const staffTargets = goals.staffTargets || {};
-      const includeSet = new Set((goals.includeStaff || []).filter(Boolean));
-
-      // 今月の追加はsource_file、今月の中止は中止日で差し引き
+    function buildAutoGoalCurrentRows(staffTargets = {}, includeSet = new Set()) {
       const baseDate = new Date();
       const nowKey = getCurrentMonthKey(baseDate);
       const monthlyMap = new Map();
       const cancelMap = new Map();
+      const carryByStaff = (state.goalCarryOver?.staffCarryIn && Object.keys(state.goalCarryOver.staffCarryIn).length)
+        ? state.goalCarryOver.staffCarryIn
+        : (state.goalCarryOver?.staffAdjustments || {});
       const allContracts = [...state.contracts, ...state.closed];
       allContracts.forEach((c) => {
         const sourceKey = c.raw?.source_file || c.source_file;
@@ -2439,9 +2910,8 @@
       Object.keys(staffTargets).forEach((n) => names.add(n));
       monthlyMap.forEach((_, name) => names.add(name));
       cancelMap.forEach((_, name) => names.add(name));
-
       const filteredNames = includeSet.size > 0 ? Array.from(includeSet) : Array.from(names);
-      // staffOrder に従って固定順でソート
+
       const orderMap = new Map((state.staffOrder || []).map((n, i) => [n, i]));
       filteredNames.sort((a, b) => {
         const ai = orderMap.has(a) ? orderMap.get(a) : 9999;
@@ -2450,24 +2920,84 @@
         return a.localeCompare(b, "ja");
       });
 
-      const rows = [];
-      filteredNames.forEach((name) => {
+      const rows = filteredNames.map((name) => {
         const added = monthlyMap.get(name) || 0;
         const canceled = cancelMap.get(name) || 0;
-        rows.push({
+        const actual = added - canceled;
+        const carryIn = Number(carryByStaff[name] || 0);
+        return {
           name,
-          current: added - canceled,
-          target: Number(staffTargets[name]) || 0
-        });
+          actual,
+          carryIn,
+          current: actual + carryIn,
+          target: Number(staffTargets[name]) || 0,
+        };
+      });
+      return rows;
+    }
+
+    function buildManualGoalCurrentRows(staffTargets = {}, includeSet = new Set()) {
+      const sales = state.sales || DEFAULT_SALES_STATE;
+      const staffSales = sales.staff || {};
+      const carryByStaff = (state.goalCarryOver?.staffCarryIn && Object.keys(state.goalCarryOver.staffCarryIn).length)
+        ? state.goalCarryOver.staffCarryIn
+        : (state.goalCarryOver?.staffAdjustments || {});
+      const names = new Set();
+      (state.masters["担当"] || []).forEach((n) => names.add(n));
+      state.summary.forEach((s) => names.add(s["担当"]));
+      Object.keys(staffTargets).forEach((n) => names.add(n));
+      Object.keys(staffSales).forEach((n) => names.add(n));
+      const filteredNames = includeSet.size > 0 ? Array.from(includeSet) : Array.from(names);
+
+      const orderMap = new Map((state.staffOrder || []).map((n, i) => [n, i]));
+      filteredNames.sort((a, b) => {
+        const ai = orderMap.has(a) ? orderMap.get(a) : 9999;
+        const bi = orderMap.has(b) ? orderMap.get(b) : 9999;
+        if (ai !== bi) return ai - bi;
+        return a.localeCompare(b, "ja");
       });
 
-      const totalCurrent = rows.reduce((sum, r) => sum + r.current, 0);
+      return filteredNames.map((name) => ({
+        name,
+        actual: Number(staffSales[name] || 0),
+        carryIn: Number(carryByStaff[name] || 0),
+        current: Number(staffSales[name] || 0) + Number(carryByStaff[name] || 0),
+        target: Number(staffTargets[name]) || 0,
+      }));
+    }
+
+    function renderGoalSummary() {
+      const overview = el("goalOverview");
+      const list = el("goalStaffList");
+      if (!overview || !list) return;
+      const goals = state.goals || { ...DEFAULT_GOAL_STATE };
+      const storeTarget = Number(goals.storeTarget) || 0;
+      const staffTargets = goals.staffTargets || {};
+      const includeSet = new Set((goals.includeStaff || []).filter(Boolean));
+      const isManualMode = goals.progressMode === "manual";
+      const carry = state.goalCarryOver || DEFAULT_GOAL_CARRY;
+      const carryStore = Number(carry.storeCarryIn ?? carry.storeAdjustment ?? 0);
+      const carryOut = Number(carry.storeCarryOut ?? 0);
+      const rows = isManualMode
+        ? buildManualGoalCurrentRows(staffTargets, includeSet)
+        : buildAutoGoalCurrentRows(staffTargets, includeSet);
+      const totalActual = isManualMode
+        ? Number((state.sales || DEFAULT_SALES_STATE).store || 0)
+        : rows.reduce((sum, r) => sum + Number(r.actual || 0), 0);
+      const totalCurrent = totalActual + carryStore;
       const storePercent = storeTarget ? Math.min(100, Math.max(0, Math.round((totalCurrent / storeTarget) * 100))) : 0;
       const storeRemain = storeTarget ? Math.max(0, storeTarget - totalCurrent) : null;
+      const carryText = !goals.carryOverEnabled
+        ? "繰越: OFF"
+        : `繰越: 開始${carryStore > 0 ? "+" : ""}${carryStore}件 / 次月${carryOut > 0 ? "+" : ""}${carryOut}件`;
+      const modeText = isManualMode ? "カウント: 手動入力" : "カウント: 自動";
       overview.innerHTML = [
         `<span class="goal-pill">店舗: ${totalCurrent}件 / 目標${storeTarget || "-"}件 ${storeTarget ? `(${storePercent}%)` : "(目標未設定)"}</span>`,
+        `<span class="goal-pill">当月実績 ${totalActual}件</span>`,
         storeRemain !== null ? `<span class="goal-pill">残り ${storeRemain}件</span>` : `<span class="goal-pill" style="background:#fef2f2;color:#b91c1c;">目標を設定してください</span>`,
-        `<span class="goal-pill">担当者 ${filteredNames.length}名</span>`
+        `<span class="goal-pill">担当者 ${rows.length}名</span>`,
+        `<span class="goal-pill">${modeText}</span>`,
+        `<span class="goal-pill">${carryText}</span>`
       ].join("");
 
       const renderItem = (name, current, target) => {
@@ -2487,16 +3017,72 @@
         renderItem("店舗合計", totalCurrent, storeTarget),
         ...rows.map((r) => renderItem(r.name, r.current, r.target))
       ].join("");
+      renderManualAdjustPanels();
+    }
+
+    function renderGoalProgressHistory() {
+      const body = el("goalProgressHistoryBody");
+      if (!body) return;
+      const stamp = el("goalProgressUpdatedAt");
+      if (stamp) {
+        stamp.textContent = state.goalProgress?.updatedAt
+          ? `最終保存: ${formatDateTimeDisplay(state.goalProgress.updatedAt)}`
+          : "";
+      }
+
+      const monthly = state.goalProgress?.monthly || {};
+      const rows = Object.entries(monthly).sort((a, b) => b[0].localeCompare(a[0], "ja"));
+      if (!rows.length) {
+        body.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:16px;color:var(--gray-500);">保存済み進捗がありません</td></tr>`;
+        return;
+      }
+
+      const signNum = (n) => {
+        const num = Number(n || 0);
+        return num > 0 ? `+${num}` : `${num}`;
+      };
+
+      body.innerHTML = rows.map(([month, rec]) => {
+        const baseGoal = rec?.baseGoal || {};
+        const carry = rec?.carryOver || {};
+        const actual = rec?.actual || {};
+        const displayStore = rec?.display?.store || {};
+        const target = Number(displayStore.target ?? baseGoal.storeTarget ?? 0);
+        const carryIn = Number(displayStore.carryIn ?? carry.storeCarryIn ?? carry.storeAdjustment ?? 0);
+        const actualVal = Number(displayStore.actual ?? actual.store ?? 0);
+        const current = Number(displayStore.current ?? (carryIn + actualVal));
+        const carryOut = Number(displayStore.carryOut ?? carry.storeCarryOut ?? 0);
+        const remain = target > 0 ? Math.max(0, target - current) : null;
+        const mode = baseGoal.progressMode === "manual" ? "手動" : "自動";
+        const monthLabel = month ? month.replace("-", "/") : "-";
+        return `<tr>
+            <td>${monthLabel}</td>
+            <td>${mode}</td>
+            <td>${signNum(carryIn)}</td>
+            <td>${actualVal}</td>
+            <td>${target > 0 ? `${current}/${target}` : `${current}/-`}</td>
+            <td>${target > 0 ? target : "-"}</td>
+            <td>${remain === null ? "-" : remain}</td>
+            <td>${signNum(carryOut)}</td>
+          </tr>`;
+      }).join("");
+    }
+
+    function updateGoalManualSalesVisibility() {
+      const mode = el("goalProgressMode")?.value === "manual" ? "manual" : "auto";
+      const wrap = el("goalManualSalesWrap");
+      if (wrap) wrap.style.display = mode === "manual" ? "block" : "none";
     }
 
     function renderGoalSettingsForm() {
       const body = el("goalSettingsBody"); if (!body) return;
-      const goals = state.goals || { storeTarget: 0, staffTargets: {} };
+      const goals = state.goalBase || state.goals || { ...DEFAULT_GOAL_STATE };
       const staffTargets = goals.staffTargets || {};
       const includeSet = new Set((goals.includeStaff || []).filter(Boolean));
       const names = new Set();
       (state.masters["担当"] || []).forEach((n) => names.add(n));
       Object.keys(staffTargets).forEach((n) => names.add(n));
+      Object.keys((state.sales && state.sales.staff) || {}).forEach((n) => names.add(n));
       state.summary.forEach((s) => names.add(s["担当"]));
       const rows = [];
       rows.push({ label: "店舗合計", key: "store", value: goals.storeTarget || 0, selectable: false });
@@ -2516,6 +3102,45 @@
           <td><input type="number" min="0" class="goal-input" data-goal="${r.key}" value="${r.value}" aria-label="${r.label}の月間目標"></td>
           <td>${r.selectable ? `<label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" data-goal-include="${r.key}" ${r.checked ? "checked" : ""}> 目標に含める</label>` : "-"}</td>
         </tr>`).join("");
+
+      const progressModeSelect = el("goalProgressMode");
+      const progressMode = goals.progressMode === "manual" ? "manual" : "auto";
+      if (progressModeSelect) progressModeSelect.value = progressMode;
+
+      const carryToggle = el("goalCarryOverEnabled");
+      if (carryToggle) carryToggle.checked = !!goals.carryOverEnabled;
+      const carryHint = el("goalCarryOverHint");
+      if (carryHint) {
+        const carry = state.goalCarryOver || DEFAULT_GOAL_CARRY;
+        const storeIn = Number(carry.storeCarryIn ?? carry.storeAdjustment ?? 0);
+        const storeOut = Number(carry.storeCarryOut ?? 0);
+        const manual = Number(carry.storeManualAdjust || 0);
+        if (!goals.carryOverEnabled) {
+          carryHint.style.display = "none";
+          carryHint.textContent = "";
+        } else {
+          carryHint.style.display = "block";
+          carryHint.textContent = `今月開始持越 ${storeIn > 0 ? "+" : ""}${storeIn}件 / 手動調整 ${manual > 0 ? "+" : ""}${manual}件 / 次月持越見込 ${storeOut > 0 ? "+" : ""}${storeOut}件`;
+        }
+      }
+
+      const manualWrap = el("goalManualSalesWrap");
+      const salesBody = el("goalSalesBody");
+      if (manualWrap && salesBody) {
+        const salesRows = getManualSalesRows();
+        salesBody.innerHTML = salesRows.map((r) => `<tr>
+            <td>${escapeHtml(r.label)}</td>
+            <td>
+              <div class="manual-counter-controls">
+                <button type="button" class="manual-counter-btn" data-manual-key="${escapeHtml(r.key)}" data-manual-delta="-1" aria-label="${escapeHtml(r.label)}を1減らす">-</button>
+                <span class="manual-counter-value">${r.value}</span>
+                <button type="button" class="manual-counter-btn" data-manual-key="${escapeHtml(r.key)}" data-manual-delta="1" aria-label="${escapeHtml(r.label)}を1増やす">+</button>
+              </div>
+            </td>
+          </tr>`).join("");
+      }
+      updateGoalManualSalesVisibility();
+      renderGoalProgressHistory();
     }
 
     async function saveGoals() {
@@ -2537,12 +3162,29 @@
       includes.forEach((input) => {
         if (input.checked && input.dataset.goalInclude) includeStaff.push(input.dataset.goalInclude);
       });
+      const carryOverEnabled = !!el("goalCarryOverEnabled")?.checked;
+      const progressMode = el("goalProgressMode")?.value === "manual" ? "manual" : "auto";
       // includeStaffが空の場合は全員表示扱い
       try {
-        const res = await apiFetch("/api/goals", { method: "PUT", body: JSON.stringify({ storeTarget, staffTargets, includeStaff }) });
-        state.goals = res;
+        const res = await apiFetch("/api/goals", {
+          method: "PUT",
+          body: JSON.stringify({ storeTarget, staffTargets, includeStaff, carryOverEnabled, progressMode }),
+        });
+        applyGoalsResponse(res);
+
+        if (progressMode === "manual") {
+          const sales = normalizeSalesState(state.sales);
+          const salesRes = await apiFetch("/api/sales", {
+            method: "PUT",
+            body: JSON.stringify({ store: sales.store, staff: sales.staff }),
+          });
+          applySalesResponse(salesRes);
+        }
+
+        await loadGoalProgress();
         renderGoalSummary();
         renderGoalSettingsForm();
+        renderGoalProgressHistory();
         alert("目標を保存しました");
       } catch (err) {
         alert("保存に失敗しました");
@@ -2550,21 +3192,56 @@
       }
     }
 
+    function renderMonthlyTrendRows(list, targetYear) {
+      const body = el("monthlyTrendBody"); if (!body) return;
+      const rows = targetYear ? list.filter((m) => Number(m.year) === Number(targetYear)) : list;
+      if (!rows.length) {
+        body.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--gray-500);">データがありません</td></tr>`;
+        return;
+      }
+      body.innerHTML = rows.map((m) => `<tr>
+          <td>${m.label}</td>
+          <td>${m.add}件</td>
+          <td>${m.contract}件</td>
+          <td>${m.purchase}件</td>
+          <td>${m.cancel}件</td>
+          <td>${m.inventory}件</td>
+        </tr>`).join("");
+    }
+
     function renderMonthlyTrendModal() {
       const list = getMonthlyInventoryBreakdown();
-      const body = el("monthlyTrendBody"); if (!body) return;
+      const tabs = el("monthlyTrendYearTabs");
+      const body = el("monthlyTrendBody");
+      if (!tabs || !body) return;
+
       if (!list.length) {
-        body.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--gray-500);">データがありません</td></tr>`;
-      } else {
-        body.innerHTML = list.map((m) => `<tr>
-            <td>${m.label}</td>
-            <td>${m.add}件</td>
-            <td>${m.contract}件</td>
-            <td>${m.purchase}件</td>
-            <td>${m.cancel}件</td>
-            <td>${m.inventory}件</td>
-          </tr>`).join("");
+        tabs.innerHTML = "";
+        renderMonthlyTrendRows(list, "");
+        openModal("modalMonthlyTrend");
+        return;
       }
+
+      const years = [...new Set(list.map((m) => Number(m.year)).filter((y) => Number.isFinite(y)))].sort((a, b) => b - a);
+      if (!years.length) {
+        tabs.innerHTML = "";
+        renderMonthlyTrendRows(list, "");
+        openModal("modalMonthlyTrend");
+        return;
+      }
+
+      const activeYear = years.includes(Number(state.monthlyTrendYear)) ? Number(state.monthlyTrendYear) : years[0];
+      state.monthlyTrendYear = activeYear;
+
+      tabs.innerHTML = years.map((year) => `<button type="button" class="monthly-trend-tab ${year === activeYear ? "active" : ""}" data-trend-year="${year}">${year}年度</button>`).join("");
+      tabs.querySelectorAll("button[data-trend-year]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          state.monthlyTrendYear = Number(btn.dataset.trendYear);
+          renderMonthlyTrendModal();
+        });
+      });
+
+      renderMonthlyTrendRows(list, activeYear);
       openModal("modalMonthlyTrend");
     }
 
@@ -2628,11 +3305,13 @@
       const contractedBody = el("closedContractedBody");
       const purchasedBody = el("closedPurchasedBody");
       const canceledBody = el("closedCanceledBody");
-      if (!contractedBody || !purchasedBody || !canceledBody) return;
+      const otherBody = el("closedOtherBody");
+      if (!contractedBody || !purchasedBody || !canceledBody || !otherBody) return;
 
       const queryContracted = (el("closedSearchContracted")?.value || "").toLowerCase();
       const queryPurchased = (el("closedSearchPurchased")?.value || "").toLowerCase();
       const queryCanceled = (el("closedSearchCanceled")?.value || "").toLowerCase();
+      const queryOther = (el("closedSearchOther")?.value || "").toLowerCase();
 
       const filterList = (status, query) => {
         return state.closed
@@ -2662,6 +3341,10 @@
             const d = formatDateDisplay(info.買取日);
             const p = info.買取価格 !== undefined && info.買取価格 !== "" ? formatPrice(info.買取価格) : "-";
             infoText = `買取日: ${d} / 価格: ${p}`;
+          } else if (kind === "other") {
+            const info = c.otherInfo || {};
+            const d = formatDateDisplay(info.他決日 || c.statusDate);
+            infoText = `他決日: ${d} / 理由: ${info.他決理由 || "-"}`;
           } else {
             const info = c.cancelInfo || {};
             const d = formatDateDisplay(info.中止日);
@@ -2687,8 +3370,9 @@
       contractedBody.innerHTML = renderRows(filterList("成約", queryContracted), "contracted");
       purchasedBody.innerHTML = renderRows(filterList("買取", queryPurchased), "purchased");
       canceledBody.innerHTML = renderRows(filterList("中止", queryCanceled), "canceled");
+      otherBody.innerHTML = renderRows(filterList("他決", queryOther), "other");
 
-      document.querySelectorAll("#closedContractedBody button[data-action], #closedPurchasedBody button[data-action], #closedCanceledBody button[data-action]").forEach((btn) => {
+      document.querySelectorAll("#closedContractedBody button[data-action], #closedPurchasedBody button[data-action], #closedCanceledBody button[data-action], #closedOtherBody button[data-action]").forEach((btn) => {
         btn.addEventListener("click", () => handleClosedAction(btn.dataset.action, btn.dataset.id));
       });
     }
@@ -2712,6 +3396,7 @@
           status: "公開中",
           statusDate: new Date().toISOString().slice(0, 10),
           closeInfo: null,
+          otherInfo: null,
           purchaseInfo: null,
           cancelInfo: null,
         });
@@ -2897,10 +3582,10 @@
       });
     }
 
-    function toggleClosedView() { state.filters.closedOnly = !state.filters.closedOnly; el("btnShowClosed").textContent = state.filters.closedOnly ? "一覧に戻る" : "契約済み/買取/中止"; renderTable(); }
+    function toggleClosedView() { state.filters.closedOnly = !state.filters.closedOnly; el("btnShowClosed").textContent = state.filters.closedOnly ? "一覧に戻る" : "契約済み/買取/中止/他決"; renderTable(); }
 
     function openModal(id) { const backdrop = el(id); if (backdrop) backdrop.classList.remove("hidden"); }
-    function closeModal(id) { const backdrop = el(id); if (backdrop) backdrop.classList.add("hidden"); if (["modalContract","modalClose","modalPurchase","modalCancel","modalUpdate","modalChange"].includes(id)) releaseLock(); }
+    function closeModal(id) { const backdrop = el(id); if (backdrop) backdrop.classList.add("hidden"); if (["modalContract","modalClose","modalPurchase","modalCancel","modalOther","modalUpdate","modalChange"].includes(id)) releaseLock(); }
 
     function openContractModal(contract) {
       state.editingId = contract ? contract.id : null;
@@ -2915,6 +3600,7 @@
       el("keyBoxNumberGroup").style.display = "none";
       el("offerSection").style.display = "none";
       el("closeInfoSection").style.display = "none";
+      el("otherInfoSection").style.display = "none";
       el("cancelInfoSection").style.display = "none";
       el("formReinsChangeDate").disabled = true;
       
@@ -2965,6 +3651,14 @@
           form.elements["dealType"].value = info.取引形態 || "";
           form.elements["closeRegDate"].value = info.成約登録日 || "";
         }
+
+        // 他決情報
+        if (contract.status === "他決") {
+          el("otherInfoSection").style.display = "block";
+          const info = contract.otherInfo || {};
+          form.elements["otherDate"].value = info.他決日 || contract.statusDate || "";
+          form.elements["otherReason"].value = info.他決理由 || "";
+        }
         
         // 中止情報
         if (contract.status === "中止") {
@@ -2987,7 +3681,7 @@
         openPriceHistoryModal(contract);
         return;
       }
-      if (["edit", "close", "purchase", "cancel", "renew", "change"].includes(action)) {
+      if (["edit", "close", "purchase", "other", "cancel", "renew", "change"].includes(action)) {
         const locked = await acquireLock(id);
         if (!locked) return;
         state.editingId = id;
@@ -2997,6 +3691,7 @@
       else if (action === "change") openChangeModal(contract);
       else if (action === "close") openCloseModal(contract);
       else if (action === "purchase") openPurchaseModal(contract);
+      else if (action === "other") openOtherModal(contract);
       else if (action === "cancel") openCancelModal(contract);
       else if (action === "delete") {
         if (confirm("削除してよろしいですか？")) {
@@ -3066,6 +3761,17 @@
       openModal("modalCancel");
     }
 
+    function openOtherModal(contract) {
+      const form = el("otherForm");
+      form.reset();
+      form.elements["id"].value = contract.id;
+      form.elements["address"].value = contract.address || "";
+      const info = contract.otherInfo || {};
+      form.elements["otherDate"].value = info.他決日 || new Date().toISOString().slice(0, 10);
+      form.elements["otherReason"].value = info.他決理由 || "";
+      openModal("modalOther");
+    }
+
     async function submitContract(e) {
       e.preventDefault();
       const form = e.target;
@@ -3096,20 +3802,26 @@
           取引形態: data.dealType || "",
           成約登録日: data.closeRegDate || ""
         };
+        data.otherInfo = null;
         data.cancelInfo = null;
-      } else {
+      } else if (data.status === "中止") {
         data.closeInfo = null;
-      }
-      
-      // 中止情報
-      if (data.status === "中止") {
+        data.otherInfo = null;
         data.cancelInfo = {
           中止日: data.cancelDate || "",
           レインズ削除済み: data.reinsDeleted === "true",
           中止理由: data.cancelReason || ""
         };
+      } else if (data.status === "他決") {
         data.closeInfo = null;
-      } else if (data.status !== "成約") {
+        data.otherInfo = {
+          他決日: data.otherDate || "",
+          他決理由: data.otherReason || "",
+        };
+        data.cancelInfo = null;
+      } else {
+        data.closeInfo = null;
+        data.otherInfo = null;
         data.cancelInfo = null;
       }
       
@@ -3121,6 +3833,8 @@
       delete data.cancelDate;
       delete data.reinsDeleted;
       delete data.cancelReason;
+      delete data.otherDate;
+      delete data.otherReason;
       
       const norm = [...state.contracts, ...state.closed].find((c) => c.id === data.id);
       if (data.status === "買取") {
@@ -3223,6 +3937,7 @@
         statusDate: data.purchaseDate,
         purchaseInfo: { 買取日: data.purchaseDate, 買取価格: purchasePrice },
         closeInfo: null,
+        otherInfo: null,
         cancelInfo: null,
       });
       await apiFetch(`/api/contracts/${id}`, { method: "PUT", body: JSON.stringify(updated) });
@@ -3272,6 +3987,9 @@
         status: "成約",
         statusDate: data.closeDate,
         closeInfo: { 成約日: data.closeDate, 成約価格: Number(data.closePrice), 取引形態: data.dealType, 成約登録日: data.closeRegDate },
+        otherInfo: null,
+        purchaseInfo: null,
+        cancelInfo: null,
       });
       await apiFetch(`/api/contracts/${id}`, { method: "PUT", body: JSON.stringify(updated) });
       closeModal("modalClose");
@@ -3294,9 +4012,38 @@
         status: "中止",
         statusDate: data.cancelDate,
         cancelInfo: { 中止日: data.cancelDate, レインズ削除済み: data.reinsDeleted === "true", 中止理由: data.cancelReason },
+        closeInfo: null,
+        otherInfo: null,
+        purchaseInfo: null,
       });
       await apiFetch(`/api/contracts/${id}`, { method: "PUT", body: JSON.stringify(updated) });
       closeModal("modalCancel");
+      await loadContracts();
+      await loadSummary();
+      renderStats();
+      renderTable();
+      renderClosedTable();
+      renderAlert();
+    }
+
+    async function submitOther(e) {
+      e.preventDefault();
+      const form = e.target;
+      const data = Object.fromEntries(new FormData(form).entries());
+      const id = data.id;
+      const contract = [...state.contracts, ...state.closed].find((c) => c.id === id);
+      if (!contract) return;
+      if (!data.otherDate) { alert("他決日を入力してください"); return; }
+      const updated = toPayload(contract, {
+        status: "他決",
+        statusDate: data.otherDate,
+        otherInfo: { 他決日: data.otherDate, 他決理由: data.otherReason || "" },
+        closeInfo: null,
+        purchaseInfo: null,
+        cancelInfo: null,
+      });
+      await apiFetch(`/api/contracts/${id}`, { method: "PUT", body: JSON.stringify(updated) });
+      closeModal("modalOther");
       await loadContracts();
       await loadSummary();
       renderStats();
@@ -3475,7 +4222,7 @@
           break;
         case "closed":
           data = exportAll ? [...state.contracts, ...state.closed] : state.closed;
-          filename = `契約済み中止リスト_${today}.csv`;
+          filename = `契約済み中止一般他社他決_${today}.csv`;
           downloadCSV(data, filename, "closed");
           break;
         case "byStaff":
@@ -3508,7 +4255,7 @@
           ]);
           break;
         case "closed":
-          headers = ["媒介No.", "取引状況", "ステータス日付", "担当", "種別", "物件所在地（市町村から）", "成約/買取/中止日", "成約/買取価格 または 中止理由"];
+          headers = ["媒介No.", "取引状況", "ステータス日付", "担当", "種別", "物件所在地（市町村から）", "成約/買取/中止/他決日", "成約/買取価格 または 中止/他決理由"];
           rows = data.map((c) => {
             let infoDate = "";
             let infoDetail = "";
@@ -3518,6 +4265,9 @@
             } else if (c.status === "買取") {
               infoDate = c.purchaseInfo?.買取日 || "";
               infoDetail = c.purchaseInfo?.買取価格 || "";
+            } else if (c.status === "他決") {
+              infoDate = c.otherInfo?.他決日 || c.statusDate || "";
+              infoDetail = c.otherInfo?.他決理由 || "";
             } else {
               infoDate = c.cancelInfo?.中止日 || "";
               infoDetail = c.cancelInfo?.中止理由 || "";
