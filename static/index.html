@@ -680,19 +680,6 @@
               </div>
             </div>
           </div>
-          <div class="section-card">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
-              <h3 class="section-title" style="margin:0;">担当別・媒介種別 月次推移</h3>
-              <div class="trend-filter-row" style="margin:0;">
-                <select class="filter-select" id="staffMonthlyTrendRange" style="min-width:120px;">
-                  <option value="12">直近12ヶ月</option>
-                  <option value="24">直近24ヶ月</option>
-                  <option value="0">全期間</option>
-                </select>
-              </div>
-            </div>
-            <div class="staff-trend-stack" id="staffMonthlyTrendPanels"></div>
-          </div>
           <div class="goal-card" id="goalSummaryCard">
             <div class="goal-header">
               <h3 class="goal-title">月間目標達成状況</h3>
@@ -700,10 +687,6 @@
             </div>
             <div class="goal-overview" id="goalOverview"></div>
             <div class="goal-progress-list" id="goalStaffList"></div>
-            <div id="manualAdjustDashboardWrap" style="margin-top:12px;display:none;">
-              <div class="goal-pill" style="margin-bottom:8px;">手動カウント（ダッシュボード）: +/-で即時保存</div>
-              <div class="manual-counter-list" id="manualAdjustDashboardBody"></div>
-            </div>
           </div>
 
           <div class="alert-banner" id="alertBanner">
@@ -733,14 +716,6 @@
               <button class="btn btn-outline" id="btnLockManageTop">🔓 ロック解除</button>
               <button class="btn btn-outline" id="btnExportDashboard">📤 CSV出力</button>
             </div>
-          </div>
-
-          <div class="section-card" id="manualAdjustContractsWrap" style="display:none;">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
-              <h3 class="section-title" style="margin:0;">手動カウント（媒介契約一覧）</h3>
-              <span class="stats-subtitle">+/-操作は即時Supabaseへ保存されます</span>
-            </div>
-            <div class="manual-counter-list" id="manualAdjustContractsBody"></div>
           </div>
 
           <div class="table-container">
@@ -2052,7 +2027,6 @@
       el("btnLockManageTop").addEventListener("click", openLockModal);
       el("alertDetailBtn").addEventListener("click", renderAlertDetailModal);
       el("btnMonthlyTrend").addEventListener("click", renderMonthlyTrendModal);
-      el("staffMonthlyTrendRange").addEventListener("change", renderStaffMonthlyTrendTable);
       el("loginForm").addEventListener("submit", handleLogin);
       el("contractForm").addEventListener("submit", submitContract);
       el("updateForm").addEventListener("submit", submitUpdate);
@@ -2434,31 +2408,6 @@
       return rows;
     }
 
-    function renderManualCounterRows(containerId) {
-      const container = el(containerId);
-      if (!container) return;
-      const rows = getManualSalesRows();
-      container.innerHTML = rows.map((r) => `<div class="manual-counter-row">
-          <span class="manual-counter-label">${escapeHtml(r.label)}</span>
-          <div class="manual-counter-controls">
-            <button type="button" class="manual-counter-btn" data-manual-key="${escapeHtml(r.key)}" data-manual-delta="-1" aria-label="${escapeHtml(r.label)}を1減らす">-</button>
-            <span class="manual-counter-value">${r.value}</span>
-            <button type="button" class="manual-counter-btn" data-manual-key="${escapeHtml(r.key)}" data-manual-delta="1" aria-label="${escapeHtml(r.label)}を1増やす">+</button>
-          </div>
-        </div>`).join("");
-    }
-
-    function renderManualAdjustPanels() {
-      const isManualMode = (state.goals || DEFAULT_GOAL_STATE).progressMode === "manual";
-      const dashboardWrap = el("manualAdjustDashboardWrap");
-      const contractsWrap = el("manualAdjustContractsWrap");
-      if (dashboardWrap) dashboardWrap.style.display = isManualMode ? "block" : "none";
-      if (contractsWrap) contractsWrap.style.display = isManualMode ? "block" : "none";
-      if (!isManualMode) return;
-      renderManualCounterRows("manualAdjustDashboardBody");
-      renderManualCounterRows("manualAdjustContractsBody");
-    }
-
     function queueSalesSave(payload, previousSales) {
       salesSaveQueue = salesSaveQueue
         .catch(() => {})
@@ -2468,14 +2417,12 @@
           await loadGoalProgress();
           renderGoalSummary();
           renderGoalSettingsForm();
-          renderManualAdjustPanels();
           renderGoalProgressHistory();
         })
         .catch((err) => {
           state.sales = previousSales;
           renderGoalSummary();
           renderGoalSettingsForm();
-          renderManualAdjustPanels();
           renderGoalProgressHistory();
           alert("手動件数の保存に失敗しました");
           console.error(err);
@@ -2510,7 +2457,6 @@
       state.sales = nextSales;
       renderGoalSummary();
       renderGoalSettingsForm();
-      renderManualAdjustPanels();
       queueSalesSave({ store: nextSales.store, staff: nextSales.staff }, previousSales);
     }
 
@@ -2751,92 +2697,8 @@
       });
     }
 
-    function buildStaffMonthlyTrendByStaff() {
-      const staffMap = new Map();
-      const all = [...state.contracts, ...state.closed];
-      all.forEach((c) => {
-        const parsed = parseMonthKey(c.raw?.source_file || c.source_file);
-        if (!parsed) return;
-        const staff = c.staff || "未設定";
-        const normalizedType = normalizeBrokerageType(c.type);
-        if (!normalizedType) return;
-        const monthKey = `${parsed.year}-${String(parsed.month).padStart(2, "0")}`;
-        if (!staffMap.has(staff)) staffMap.set(staff, new Map());
-        const monthMap = staffMap.get(staff);
-        if (!monthMap.has(monthKey)) {
-          monthMap.set(monthKey, {
-            monthKey,
-            monthLabel: `${parsed.year}年${String(parsed.month).padStart(2, "0")}月`,
-            senzoku: 0,
-            senin: 0,
-            ippan: 0,
-            total: 0,
-          });
-        }
-        const row = monthMap.get(monthKey);
-        if (normalizedType === "専属") row.senzoku += 1;
-        if (normalizedType === "専任") row.senin += 1;
-        if (normalizedType === "一般") row.ippan += 1;
-        row.total += 1;
-      });
-
-      const result = {};
-      staffMap.forEach((monthMap, staff) => {
-        result[staff] = Array.from(monthMap.values()).sort((a, b) => b.monthKey.localeCompare(a.monthKey, "ja"));
-      });
-      return result;
-    }
-
-    function renderStaffMonthlyTrendTable() {
-      const panels = el("staffMonthlyTrendPanels");
-      if (!panels) return;
-      const grouped = buildStaffMonthlyTrendByStaff();
-      const staffNames = getSortedStaffNames(new Set(Object.keys(grouped)));
-      if (!staffNames.length) {
-        panels.innerHTML = `<div class="staff-trend-card"><div style="text-align:center;padding:16px;color:var(--gray-500);">データがありません</div></div>`;
-        return;
-      }
-      const allMonthOrder = [...new Set(staffNames.flatMap((name) => (grouped[name] || []).map((r) => r.monthKey)))].sort((a, b) => b.localeCompare(a, "ja"));
-      const rangeLimit = Number(el("staffMonthlyTrendRange")?.value || 12);
-      const allowedMonths = rangeLimit > 0 ? new Set(allMonthOrder.slice(0, rangeLimit)) : null;
-
-      const cards = [];
-      staffNames.forEach((staff) => {
-        let rows = grouped[staff] || [];
-        if (allowedMonths) rows = rows.filter((r) => allowedMonths.has(r.monthKey));
-        if (!rows.length) return;
-        cards.push(`<div class="staff-trend-card">
-            <h4>${escapeHtml(staff)}</h4>
-            <div class="table-container" style="max-height:220px;overflow-y:auto;">
-              <table>
-                <thead>
-                  <tr>
-                    <th>月</th>
-                    <th>専属</th>
-                    <th>専任</th>
-                    <th>一般</th>
-                    <th>合計</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${rows.map((r) => `<tr>
-                      <td>${r.monthLabel}</td>
-                      <td>${r.senzoku}件</td>
-                      <td>${r.senin}件</td>
-                      <td>${r.ippan}件</td>
-                      <td>${r.total}件</td>
-                    </tr>`).join("")}
-                </tbody>
-              </table>
-            </div>
-          </div>`);
-      });
-      panels.innerHTML = cards.length ? cards.join("") : `<div class="staff-trend-card"><div style="text-align:center;padding:16px;color:var(--gray-500);">データがありません</div></div>`;
-    }
-
     function renderStats() {
       el("inventoryCount").textContent = state.contracts.length;
-      renderStaffMonthlyTrendTable();
     }
 
     function renderAlert() {
@@ -3000,24 +2862,30 @@
         `<span class="goal-pill">${carryText}</span>`
       ].join("");
 
-      const renderItem = (name, current, target) => {
+      const renderItem = (name, key, current, target, manualAdjustable) => {
         const percent = target ? Math.min(100, Math.max(0, Math.round((current / target) * 100))) : 0;
         const remain = target ? Math.max(0, target - current) : null;
         const width = target ? Math.min(100, Math.max(0, (current / target) * 100)) : 0;
         const status = target ? `${current} / ${target}件 (${percent}%)` : `${current}件（目標未設定）`;
         const remainText = remain === null ? "目標を設定してください" : `残り ${remain}件`;
+        const manualCurrent = Number((state.sales?.staff || {})[key] || 0);
+        const manualControls = (isManualMode && manualAdjustable) ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:6px;">
+            <button type="button" class="manual-counter-btn" data-manual-key="${escapeHtml(key)}" data-manual-delta="-1" aria-label="${escapeHtml(name)}を1減らす" style="width:20px;height:20px;font-size:12px;border-radius:4px;">-</button>
+            <span style="min-width:30px;text-align:center;font-size:11px;color:var(--gray-600);">${manualCurrent}</span>
+            <button type="button" class="manual-counter-btn" data-manual-key="${escapeHtml(key)}" data-manual-delta="1" aria-label="${escapeHtml(name)}を1増やす" style="width:20px;height:20px;font-size:12px;border-radius:4px;">+</button>
+          </div>` : "";
         return `<div class="goal-item">
             <div class="goal-item-header"><span>${name}</span><span>${status}</span></div>
             <div class="goal-progress"><div class="goal-progress-bar" style="width:${width}%;"></div></div>
             <div class="goal-progress-text">${remainText}</div>
+            ${manualControls}
           </div>`;
       };
 
       list.innerHTML = [
-        renderItem("店舗合計", totalCurrent, storeTarget),
-        ...rows.map((r) => renderItem(r.name, r.current, r.target))
+        renderItem("店舗合計", "store", totalCurrent, storeTarget, false),
+        ...rows.map((r) => renderItem(r.name, r.name, r.current, r.target, true))
       ].join("");
-      renderManualAdjustPanels();
     }
 
     function renderGoalProgressHistory() {
