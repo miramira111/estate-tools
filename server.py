@@ -28,9 +28,8 @@ CONFIG_PATH = os.path.join(BASE_DIR, "config.env")
 
 LOCK_DURATION_MINUTES = 2
 DEFAULT_GOAL = {"storeTarget": 0, "staffTargets": {}, "includeStaff": []}
-
-# 担当者の表示順序（固定）
 STAFF_ORDER = ["小俣", "平石", "北口", "尾野"]
+CLOSED_STATUSES = ("成約", "中止", "買取", "他決")
 
 
 def current_month_key():
@@ -267,6 +266,23 @@ def save_case_numbers(data):
     save_app_setting("case_numbers", data)
 
 
+def load_goal_progress_data():
+    data = load_app_setting("goal_progress", {"updatedAt": "", "monthly": {}, "yearly": {}})
+    if not isinstance(data, dict):
+        return {"updatedAt": "", "monthly": {}, "yearly": {}}
+    monthly = data.get("monthly")
+    yearly = data.get("yearly")
+    if not isinstance(monthly, dict):
+        monthly = {}
+    if not isinstance(yearly, dict):
+        yearly = {}
+    return {"updatedAt": data.get("updatedAt") or "", "monthly": monthly, "yearly": yearly}
+
+
+def save_goal_progress_data(data):
+    save_app_setting("goal_progress", data)
+
+
 # ------------------------------------------------------------
 # 目標・売上ユーティリティ
 # ------------------------------------------------------------
@@ -410,6 +426,8 @@ def month_key_from_date(date_str):
 # ------------------------------------------------------------
 def db_row_to_contract(row):
     """DBの行データをJSON形式の契約データに変換"""
+    status = row["deal_status"] or ""
+    deal_info = row["deal_info"]
     return {
         "id": row["id"],
         "source_file": row["source_file"] or "",
@@ -430,7 +448,8 @@ def db_row_to_contract(row):
         "売主連絡先": row["seller_contact"] or "",
         "変更履歴": row["change_history"] or [],
         "媒介期日": format_date(row["mediation_expire_date"]),
-        "成約情報": row["deal_info"],
+        "成約情報": deal_info if status == "成約" else None,
+        "他決情報": deal_info if status == "他決" else None,
         "担当": row["staff_id"] or "",
         "新規媒介締結日": format_date(row["mediation_start_date"]),
         "更新日時": format_datetime(row["updated_at"]),
@@ -458,6 +477,7 @@ def contract_to_db_params(contract, year_month=None):
     cancel_reason = contract.get("中止理由")
     if isinstance(cancel_reason, dict):
         cancel_reason = json.dumps(cancel_reason, ensure_ascii=False)
+    deal_info = contract.get("成約情報") or contract.get("他決情報")
 
     return {
         "id": contract.get("id"),
@@ -491,7 +511,7 @@ def contract_to_db_params(contract, year_month=None):
         "key_location": contract.get("鍵の場所") or None,
         "price_history": json.dumps(contract.get("価格推移") or [], ensure_ascii=False),
         "change_history": json.dumps(contract.get("変更履歴") or [], ensure_ascii=False),
-        "deal_info": json.dumps(contract.get("成約情報"), ensure_ascii=False) if contract.get("成約情報") else None,
+        "deal_info": json.dumps(deal_info, ensure_ascii=False) if deal_info else None,
         "purchase_info": json.dumps(contract.get("買取情報"), ensure_ascii=False) if contract.get("買取情報") else None,
     }
 
@@ -1242,7 +1262,7 @@ def api_delete_lock(contract_id):
 # 契約データ API
 # ------------------------------------------------------------
 def filter_active_status(status):
-    return status not in ("成約", "中止", "買取")
+    return status not in CLOSED_STATUSES
 
 
 def sort_key_contract_id(contract):
@@ -1270,7 +1290,7 @@ def api_contracts_active():
 def api_contracts_closed():
     closed = []
     for contract in load_all_contracts():
-        if contract.get("取引状況") in ("成約", "中止", "買取"):
+        if contract.get("取引状況") in CLOSED_STATUSES:
             closed.append(contract)
     closed.sort(key=sort_key_contract_id)
     return jsonify(closed)
@@ -1474,7 +1494,7 @@ def api_notifications():
         address = contract.get("物件所在地", "")
         status = contract.get("取引状況", "")
 
-        if status in ("成約", "中止", "買取"):
+        if status in CLOSED_STATUSES:
             continue
 
         expire_date_str = contract.get("媒介期日")
@@ -1549,7 +1569,6 @@ def api_notifications():
 @app.route("/api/summary", methods=["GET"])
 @login_required
 def api_summary():
-    # includeStaff 設定を取得（表示/非表示制御用）
     goals = load_goals_data()
     month_key = normalize_month_key(request.args.get("month")) or current_month_key()
     month_goal = get_goal_for_month(month_key, goals)
@@ -1557,7 +1576,7 @@ def api_summary():
 
     summary = {}
     for contract in load_all_contracts():
-        if contract.get("取引状況") in ("成約", "中止", "買取"):
+        if contract.get("取引状況") in CLOSED_STATUSES:
             continue
         staff = contract.get("担当") or "未設定"
         type_name = (contract.get("種別") or "未設定").strip()
@@ -1569,11 +1588,9 @@ def api_summary():
         summary[staff][type_name] += 1
         summary[staff]["total"] += 1
 
-    # STAFF_ORDER に従って固定順でデータを作成
     data = []
     added_staff = set()
 
-    # まず STAFF_ORDER の順番で追加
     for staff in STAFF_ORDER:
         if staff in summary:
             counts = summary[staff]
@@ -1586,21 +1603,21 @@ def api_summary():
             })
             added_staff.add(staff)
 
-    # STAFF_ORDER に含まれない担当者を最後に追加
     for staff, counts in summary.items():
-        if staff not in added_staff:
-            data.append({
-                "担当": staff,
-                "専属": counts.get("専属", 0),
-                "専任": counts.get("専任", 0),
-                "一般": counts.get("一般", 0),
-                "total": counts.get("total", 0),
-            })
+        if staff in added_staff:
+            continue
+        data.append({
+            "担当": staff,
+            "専属": counts.get("専属", 0),
+            "専任": counts.get("専任", 0),
+            "一般": counts.get("一般", 0),
+            "total": counts.get("total", 0),
+        })
 
     return jsonify({
         "summary": data,
         "includeStaff": include_staff,
-        "staffOrder": STAFF_ORDER
+        "staffOrder": STAFF_ORDER,
     })
 
 
@@ -1641,6 +1658,10 @@ def api_goals():
         "storeTarget": body.get("storeTarget"),
         "staffTargets": body.get("staffTargets"),
         "includeStaff": body.get("includeStaff"),
+        "carryOverEnabled": body.get("carryOverEnabled"),
+        "progressMode": body.get("progressMode"),
+        "carryAdjustStore": body.get("carryAdjustStore"),
+        "carryAdjustStaff": body.get("carryAdjustStaff"),
     }
     if body.get("year") and not body.get("month"):
         year_key = str(body.get("year"))
@@ -1746,6 +1767,29 @@ def api_goal_progress():
         return jsonify({"error": "yearはYYYY形式で指定してください"}), 400
 
     month_filter = normalize_month_key(request.args.get("month"))
+    refresh_requested = str(request.args.get("refresh") or "").lower() in ("1", "true", "yes")
+
+    saved = load_goal_progress_data()
+    if not refresh_requested and (saved.get("monthly") or {}):
+        monthly_response = {}
+        for month_key, rec in sorted((saved.get("monthly") or {}).items()):
+            if month_filter and month_key != month_filter:
+                continue
+            if year_filter and not month_key.startswith(f"{year_filter}-"):
+                continue
+            monthly_response[month_key] = rec
+        yearly_response = saved.get("yearly") or {}
+        if year_filter:
+            yearly_response = {year: data for year, data in yearly_response.items() if year == str(year_filter)}
+        goals = load_goals_data()
+        return jsonify({
+            "currentMonth": current_month_key(),
+            "updatedAt": saved.get("updatedAt", ""),
+            "monthly": monthly_response,
+            "yearly": yearly_response,
+            "annualGoals": goals.get("annual", {}),
+            "staffOrder": STAFF_ORDER,
+        })
 
     goals = load_goals_data()
     monthly_progress = build_monthly_progress()
@@ -1757,22 +1801,66 @@ def api_goal_progress():
             continue
         if year_filter and not month_key.startswith(f"{year_filter}-"):
             continue
+        goal = get_goal_for_month(month_key, goals)
+        progress = monthly_progress.get(month_key, {"signed": 0, "canceled": 0, "net": 0, "staff": {}})
+        try:
+            actual_store = int(progress.get("net") or 0)
+        except (TypeError, ValueError):
+            actual_store = 0
+        target_store = int((goal or {}).get("storeTarget") or 0)
+        staff_actual = {}
+        for name, rec in (progress.get("staff") or {}).items():
+            try:
+                staff_actual[name] = int((rec or {}).get("net") or 0)
+            except (TypeError, ValueError):
+                staff_actual[name] = 0
+        carry = {
+            "enabled": bool((goal or {}).get("carryOverEnabled")),
+            "storeAdjustment": 0,
+            "staffAdjustments": {},
+            "storeCarryIn": 0,
+            "storeCarryOut": actual_store - target_store,
+            "staffCarryIn": {},
+            "staffCarryOut": {},
+        }
         monthly_response[month_key] = {
-            "goal": get_goal_for_month(month_key, goals),
-            "progress": monthly_progress.get(month_key, {"signed": 0, "canceled": 0, "net": 0, "staff": {}}),
+            "goal": goal,
+            "baseGoal": goal,
+            "carryOver": carry,
+            "progress": progress,
+            "actual": {"store": actual_store, "staff": staff_actual},
+            "display": {
+                "store": {
+                    "target": target_store,
+                    "actual": actual_store,
+                    "carryIn": 0,
+                    "current": actual_store,
+                    "carryOut": actual_store - target_store,
+                    "percent": round((actual_store / target_store) * 100, 1) if target_store > 0 else None,
+                    "remain": max(0, target_store - actual_store) if target_store > 0 else None,
+                },
+                "staff": {},
+            },
         }
 
     yearly_response = build_yearly_progress(monthly_progress, goals)
     if year_filter:
         yearly_response = {year: data for year, data in yearly_response.items() if year == str(year_filter)}
 
-    return jsonify({
+    payload = {
         "currentMonth": current_month_key(),
+        "updatedAt": datetime.now().isoformat(),
         "monthly": monthly_response,
         "yearly": yearly_response,
         "annualGoals": goals.get("annual", {}),
         "staffOrder": STAFF_ORDER,
+    }
+    save_goal_progress_data({
+        "updatedAt": payload["updatedAt"],
+        "monthly": monthly_response,
+        "yearly": yearly_response,
     })
+    return jsonify(payload)
 
 
 # ------------------------------------------------------------
