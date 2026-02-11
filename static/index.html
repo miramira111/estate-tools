@@ -4969,24 +4969,36 @@
           const source = c.inquiry_source || "";
           const applicableRules = getApplicableRules(source);
           const exData = c.exclusion_data || {};
-          const threshold = customerState.highlightThresholdDays || 5;
-          let minDaysLeft = Infinity;
+          const globalThreshold = customerState.highlightThresholdDays || 5;
+          let mostUrgent = null; // { daysLeft, threshold }
           for (const rule of applicableRules) {
-            if (!rule.deadline_days) continue;
             // ルール値が設定済みならスキップ
             if (exData[rule.id]) continue;
+            // 反響ごとの設定を取得
+            const srcConf = (rule.applicable_sources && !Array.isArray(rule.applicable_sources))
+              ? (rule.applicable_sources[source] || {})
+              : {};
+            const deadlineDays = srcConf.deadline_days || rule.deadline_days || null;
+            if (!deadlineDays) continue;
+            const srcThreshold = srcConf.highlight_threshold_days || deadlineDays || globalThreshold;
             const inquiryDate = new Date(c.inquiry_date);
             const deadline = new Date(inquiryDate);
-            deadline.setDate(deadline.getDate() + rule.deadline_days);
+            deadline.setDate(deadline.getDate() + deadlineDays);
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             const daysLeft = Math.ceil((deadline - today) / (1000 * 60 * 60 * 24));
-            if (daysLeft > 0 && daysLeft < minDaysLeft) minDaysLeft = daysLeft;
+            if (daysLeft > 0 && daysLeft <= srcThreshold) {
+              if (!mostUrgent || daysLeft < mostUrgent.daysLeft) {
+                mostUrgent = { daysLeft, threshold: srcThreshold };
+              }
+            }
           }
-          if (minDaysLeft <= Math.floor(threshold / 2)) {
-            rowBgStyle = "background-color:#FDE68A;";
-          } else if (minDaysLeft <= threshold) {
-            rowBgStyle = "background-color:#FEF3C7;";
+          if (mostUrgent) {
+            if (mostUrgent.daysLeft <= Math.floor(mostUrgent.threshold / 2)) {
+              rowBgStyle = "background-color:#FDE68A;";
+            } else {
+              rowBgStyle = "background-color:#FEF3C7;";
+            }
           }
         }
 
@@ -5064,7 +5076,12 @@
 
     function getApplicableRules(inquirySource) {
       const rules = customerState.ruleDefinitions.rules || [];
-      return rules.filter(r => (r.applicable_sources || []).includes(inquirySource));
+      return rules.filter(r => {
+        const src = r.applicable_sources || {};
+        // 旧形式（配列）互換
+        if (Array.isArray(src)) return src.includes(inquirySource);
+        return inquirySource in src;
+      });
     }
 
     function openExclusionSettingsModal() {
@@ -5098,10 +5115,22 @@
 
       container.innerHTML = rules.map((rule, idx) => {
         const optionsStr = (rule.options || []).join(", ");
-        const applicableSources = rule.applicable_sources || [];
-        const sourceCheckboxes = sources.map(src => {
-          const checked = applicableSources.includes(src) ? "checked" : "";
-          return `<label><input type="checkbox" value="${src}" ${checked}><span>${src}</span></label>`;
+        // applicable_sources は { "スーモ": {deadline_days:6, highlight_threshold_days:6}, ... } 形式
+        const appSources = rule.applicable_sources || {};
+        // 旧形式（配列）との互換: 配列なら空設定のオブジェクトに変換
+        const sourceMap = Array.isArray(appSources)
+          ? appSources.reduce((m, s) => { m[s] = { deadline_days: rule.deadline_days || null, highlight_threshold_days: rule.highlight_threshold_days || null }; return m; }, {})
+          : appSources;
+        const sourceRows = sources.map(src => {
+          const checked = src in sourceMap ? "checked" : "";
+          const srcConf = sourceMap[src] || {};
+          const dlVal = srcConf.deadline_days || "";
+          const thVal = srcConf.highlight_threshold_days != null ? srcConf.highlight_threshold_days : "";
+          return `<div class="rule-source-row" style="display:flex;align-items:center;gap:8px;padding:3px 0;border-bottom:1px solid var(--gray-100);">
+            <label style="min-width:120px;margin:0;"><input type="checkbox" class="rule-src-check" value="${src}" ${checked}><span style="margin-left:4px;">${src}</span></label>
+            <input type="number" class="form-control rule-src-deadline" value="${dlVal}" min="0" placeholder="期限(日)" style="font-size:11px;padding:2px 6px;width:80px;" ${checked ? "" : "disabled"}>
+            <input type="number" class="form-control rule-src-threshold" value="${thVal}" min="0" placeholder="閾値(日)" style="font-size:11px;padding:2px 6px;width:80px;" ${checked ? "" : "disabled"}>
+          </div>`;
         }).join("");
 
         return `<div class="exclusion-rule-card" data-rule-idx="${idx}">
@@ -5114,15 +5143,24 @@
               <label style="font-size:11px;margin-bottom:2px;">選択肢（カンマ区切り）</label>
               <input type="text" class="form-control" name="rule_options" value="${optionsStr}" placeholder="除外〇, 除外×, 除外中" style="font-size:12px;padding:4px 8px;">
             </div>
-            <div class="form-group" style="margin:0;">
-              <label style="font-size:11px;margin-bottom:2px;">申請期限(日)</label>
-              <input type="number" class="form-control" name="rule_deadline" value="${rule.deadline_days || ""}" min="0" placeholder="無し" style="font-size:12px;padding:4px 8px;width:100px;">
-            </div>
           </div>
-          <div style="font-size:11px;color:var(--gray-500);margin-bottom:4px;">適用する反響:</div>
-          <div class="rule-sources">${sourceCheckboxes}</div>
+          <div style="font-size:11px;color:var(--gray-500);margin:8px 0 4px;">適用する反響（反響ごとに申請期限・ﾊｲﾗｲﾄ閾値を設定）:</div>
+          <div style="display:flex;gap:8px;padding:0 0 4px 128px;font-size:10px;color:var(--gray-400);">
+            <span style="width:80px;text-align:center;">申請期限</span>
+            <span style="width:80px;text-align:center;">ﾊｲﾗｲﾄ閾値</span>
+          </div>
+          <div class="rule-sources">${sourceRows}</div>
         </div>`;
       }).join("");
+
+      // チェックボックスで入力欄の有効/無効を切り替え
+      container.querySelectorAll(".rule-src-check").forEach(cb => {
+        cb.addEventListener("change", function() {
+          const row = this.closest(".rule-source-row");
+          row.querySelector(".rule-src-deadline").disabled = !this.checked;
+          row.querySelector(".rule-src-threshold").disabled = !this.checked;
+        });
+      });
     }
 
     function addExclusionRule() {
@@ -5131,8 +5169,7 @@
         id: "r_" + Date.now(),
         name: "",
         options: [],
-        deadline_days: null,
-        applicable_sources: []
+        applicable_sources: {}
       });
       customerState.ruleDefinitions.rules = rules;
       renderExclusionRuleCards();
@@ -5155,17 +5192,29 @@
       cards.forEach((card, idx) => {
         const name = card.querySelector('input[name="rule_name"]').value.trim();
         const optionsStr = card.querySelector('input[name="rule_options"]').value;
-        const deadlineVal = card.querySelector('input[name="rule_deadline"]').value;
-        const checkedSources = Array.from(card.querySelectorAll('.rule-sources input[type="checkbox"]:checked')).map(cb => cb.value);
         const options = optionsStr.split(",").map(s => s.trim()).filter(Boolean);
-        const deadline = deadlineVal ? parseInt(deadlineVal) : null;
         const existingId = (existingRules[idx] && existingRules[idx].id) || ("r_" + Date.now() + "_" + idx);
+        // 反響ごとの設定を収集
+        const applicableSources = {};
+        card.querySelectorAll(".rule-source-row").forEach(row => {
+          const cb = row.querySelector(".rule-src-check");
+          if (cb && cb.checked) {
+            const src = cb.value;
+            const dlVal = row.querySelector(".rule-src-deadline").value;
+            const thVal = row.querySelector(".rule-src-threshold").value;
+            const dl = dlVal ? parseInt(dlVal) : null;
+            const th = thVal ? parseInt(thVal) : null;
+            applicableSources[src] = {
+              deadline_days: (dl && dl > 0) ? dl : null,
+              highlight_threshold_days: (th && th > 0) ? th : null
+            };
+          }
+        });
         rules.push({
           id: existingId,
           name: name,
           options: options,
-          deadline_days: (deadline && deadline > 0) ? deadline : null,
-          applicable_sources: checkedSources
+          applicable_sources: applicableSources
         });
       });
       return rules;
