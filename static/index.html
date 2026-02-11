@@ -1523,7 +1523,7 @@
         <button type="button" class="rule-add-btn" id="btnAddExclusionRule">+ ルール追加</button>
 
         <h4 style="font-size: 13px; color: var(--gray-700); margin: 16px 0 8px; border-bottom: 1px solid var(--gray-200); padding-bottom: 6px;">反響ごとの設定</h4>
-        <div class="table-container" style="max-height: 260px; overflow-y: auto;">
+        <div class="table-container" style="max-height: 260px; overflow-y: auto; overflow-x: auto;">
           <table>
             <thead>
               <tr>
@@ -5136,20 +5136,20 @@
         const dupCheckType = (dupRules[src] && dupRules[src].duplicate_check_type) || "days";
         const dupCheckDays = (dupRules[src] && dupRules[src].duplicate_check_days) || "";
         return `<tr data-source="${src}">
-          <td style="font-size:12px;">${src}</td>
-          <td><select class="form-control" name="deadline_type" style="width:80px;padding:4px 6px;font-size:12px;" onchange="toggleDeadlineFields(this)">
+          <td style="font-size:12px;white-space:nowrap;">${src}</td>
+          <td><select class="form-control" name="deadline_type" style="width:70px;padding:4px 4px;font-size:11px;" onchange="toggleDeadlineFields(this)">
             <option value="days"${deadlineType === "days" ? " selected" : ""}>日数</option>
             <option value="cutoff"${deadlineType === "cutoff" ? " selected" : ""}>締め日</option>
           </select></td>
-          <td><input type="number" class="form-control" name="deadline_days" value="${deadlineDays}" min="0" style="width:70px;padding:4px 6px;font-size:12px;" placeholder="無し" ${deadlineType === "cutoff" ? "disabled" : ""}></td>
-          <td><input type="number" class="form-control" name="cutoff_day" value="${cutoffDay}" min="1" max="28" style="width:70px;padding:4px 6px;font-size:12px;" placeholder="無し" ${deadlineType === "days" ? "disabled" : ""}></td>
-          <td><input type="number" class="form-control" name="highlight_threshold_days" value="${thresholdDays}" min="0" style="width:70px;padding:4px 6px;font-size:12px;" placeholder="=期限"></td>
-          <td><input type="number" class="form-control" name="no_contact_days" value="${noContactDays}" min="0" style="width:70px;padding:4px 6px;font-size:12px;" placeholder="無し"></td>
-          <td><select class="form-control" name="duplicate_check_type" style="width:80px;padding:4px 6px;font-size:12px;" onchange="toggleDuplicateFields(this)">
+          <td><input type="number" class="form-control" name="deadline_days" value="${deadlineDays}" min="0" style="width:55px;padding:4px 4px;font-size:12px;" placeholder="無し" ${deadlineType === "cutoff" ? "disabled" : ""}></td>
+          <td><input type="number" class="form-control" name="cutoff_day" value="${cutoffDay}" min="1" max="28" style="width:55px;padding:4px 4px;font-size:12px;" placeholder="無し" ${deadlineType === "days" ? "disabled" : ""}></td>
+          <td><input type="number" class="form-control" name="highlight_threshold_days" value="${thresholdDays}" min="0" style="width:55px;padding:4px 4px;font-size:12px;" placeholder="=期限"></td>
+          <td><input type="number" class="form-control" name="no_contact_days" value="${noContactDays}" min="0" style="width:55px;padding:4px 4px;font-size:12px;" placeholder="無し"></td>
+          <td><select class="form-control" name="duplicate_check_type" style="width:70px;padding:4px 4px;font-size:11px;" onchange="toggleDuplicateFields(this)">
             <option value="days"${dupCheckType === "days" ? " selected" : ""}>日数</option>
             <option value="prev_month"${dupCheckType === "prev_month" ? " selected" : ""}>前月</option>
           </select></td>
-          <td><input type="number" class="form-control" name="duplicate_check_days" value="${dupCheckDays}" min="0" style="width:70px;padding:4px 6px;font-size:12px;" placeholder="無し" ${dupCheckType === "prev_month" ? "disabled" : ""}></td>
+          <td><input type="number" class="form-control" name="duplicate_check_days" value="${dupCheckDays}" min="0" style="width:55px;padding:4px 4px;font-size:12px;" placeholder="無し" ${dupCheckType === "prev_month" ? "disabled" : ""}></td>
         </tr>`;
       }).join("");
 
