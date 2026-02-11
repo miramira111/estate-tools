@@ -5060,7 +5060,8 @@
         const be = (customer.billing_exclusion || "").trim();
         if (be !== "除外〇") {
           const srcConf = (customerState.sourceDeadlines || {})[customer.inquiry_source || ""] || {};
-          if (srcConf.deadline_days) {
+          const hasRules = getApplicableRules(customer.inquiry_source || "").length > 0;
+          if (srcConf.deadline_days && hasRules) {
             const deadline = new Date(customer.inquiry_date);
             deadline.setDate(deadline.getDate() + srcConf.deadline_days);
             const today = new Date(); today.setHours(0,0,0,0);
