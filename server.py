@@ -11,7 +11,7 @@ import io
 import json
 import os
 import re
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from functools import wraps
 
 import psycopg2
@@ -264,6 +264,30 @@ def load_case_numbers():
 
 def save_case_numbers(data):
     save_app_setting("case_numbers", data)
+
+
+def load_exclusion_rule_definitions():
+    return load_app_setting("exclusion_rule_definitions", {"highlight_threshold_days": 5, "rules": []})
+
+
+def save_exclusion_rule_definitions(data):
+    save_app_setting("exclusion_rule_definitions", data)
+
+
+def load_no_contact_rules():
+    return load_app_setting("no_contact_rules", {})
+
+
+def save_no_contact_rules(data):
+    save_app_setting("no_contact_rules", data)
+
+
+def load_duplicate_check_rules():
+    return load_app_setting("duplicate_check_rules", {})
+
+
+def save_duplicate_check_rules(data):
+    save_app_setting("duplicate_check_rules", data)
 
 
 def load_goal_progress_data():
@@ -660,6 +684,7 @@ def db_row_to_customer(row):
         "mediation": row["mediation_status"] or "",
         "contract": row["contract_status"] or "",
         "billing_exclusion": row.get("billing_exclusion") or "",
+        "exclusion_data": row.get("exclusion_data") or {},
         "expected_yield": row["expected_yield"] or "",
         "yield_rate": row["expected_yield"] or "",
         "expected_rent": row["expected_rent"] or "",
@@ -710,7 +735,7 @@ def save_customer(category, year, customer):
                     customer_name, phone, current_address, email,
                     first_call, call_status, mail_status, sms_status,
                     showing_status, pre_assessment, visit_status,
-                    mediation_status, contract_status, billing_exclusion,
+                    mediation_status, contract_status, billing_exclusion, exclusion_data,
                     expected_yield, expected_rent, self_funds, desired_loan, preferred_area,
                     memo, created_at, updated_at
                 ) VALUES (
@@ -720,7 +745,7 @@ def save_customer(category, year, customer):
                     %(customer_name)s, %(phone)s, %(current_address)s, %(email)s,
                     %(first_call)s, %(call_status)s, %(mail_status)s, %(sms_status)s,
                     %(showing_status)s, %(pre_assessment)s, %(visit_status)s,
-                    %(mediation_status)s, %(contract_status)s, %(billing_exclusion)s,
+                    %(mediation_status)s, %(contract_status)s, %(billing_exclusion)s, %(exclusion_data)s,
                     %(expected_yield)s, %(expected_rent)s, %(self_funds)s, %(desired_loan)s, %(preferred_area)s,
                     %(memo)s, %(created_at)s, %(updated_at)s
                 )
@@ -751,6 +776,7 @@ def save_customer(category, year, customer):
                     mediation_status = EXCLUDED.mediation_status,
                     contract_status = EXCLUDED.contract_status,
                     billing_exclusion = EXCLUDED.billing_exclusion,
+                    exclusion_data = EXCLUDED.exclusion_data,
                     expected_yield = EXCLUDED.expected_yield,
                     expected_rent = EXCLUDED.expected_rent,
                     self_funds = EXCLUDED.self_funds,
@@ -787,6 +813,7 @@ def save_customer(category, year, customer):
                     "mediation_status": customer.get("mediation") or customer.get("mediation_status") or None,
                     "contract_status": customer.get("contract") or customer.get("contract_status") or None,
                     "billing_exclusion": customer.get("billing_exclusion") or None,
+                    "exclusion_data": json.dumps(customer.get("exclusion_data") or {}, ensure_ascii=False),
                     "expected_yield": customer.get("yield_rate") or customer.get("expected_yield") or None,
                     "expected_rent": customer.get("expected_rent") or None,
                     "self_funds": customer.get("own_funds") or customer.get("self_funds") or None,
@@ -1914,6 +1941,152 @@ def api_update_customer_masters():
 
     save_customer_masters(current)
     return jsonify({"ok": True, "masters": current})
+
+
+# ------------------------------------------------------------
+# 除外申請設定 API
+# ------------------------------------------------------------
+@app.route("/api/exclusion-settings", methods=["GET"])
+@login_required
+def api_get_exclusion_settings():
+    return jsonify({
+        "rule_definitions": load_exclusion_rule_definitions(),
+        "no_contact_rules": load_no_contact_rules(),
+        "duplicate_check_rules": load_duplicate_check_rules(),
+    })
+
+
+@app.route("/api/exclusion-settings", methods=["PUT"])
+@login_required
+def api_update_exclusion_settings():
+    payload = request.get_json() or {}
+    if not isinstance(payload, dict):
+        return jsonify({"error": "不正な形式です"}), 400
+
+    if "rule_definitions" in payload:
+        save_exclusion_rule_definitions(payload["rule_definitions"])
+    if "no_contact_rules" in payload:
+        save_no_contact_rules(payload["no_contact_rules"])
+    if "duplicate_check_rules" in payload:
+        save_duplicate_check_rules(payload["duplicate_check_rules"])
+
+    return jsonify({
+        "ok": True,
+        "rule_definitions": load_exclusion_rule_definitions(),
+        "no_contact_rules": load_no_contact_rules(),
+        "duplicate_check_rules": load_duplicate_check_rules(),
+    })
+
+
+@app.route("/api/customers/sell/check-duplicates", methods=["POST"])
+@login_required
+def api_check_duplicates():
+    payload = request.get_json() or {}
+    customer_ids = payload.get("customer_ids", [])
+    if not customer_ids:
+        return jsonify({})
+
+    customer_ids_set = set(customer_ids)
+    dup_rules = load_duplicate_check_rules()
+
+    if not dup_rules:
+        return jsonify({})
+
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            # 全年度の売顧客を1回のSQLで取得
+            cur.execute(
+                "SELECT id, year, case_number, customer_name, phone, assessment_address, inquiry_date, inquiry_source FROM customers WHERE category = 'sell' ORDER BY inquiry_date DESC"
+            )
+            all_sell = cur.fetchall()
+
+    # 対象顧客をIDで索引
+    target_map = {}
+    for row in all_sell:
+        sid = str(row["id"])
+        if sid in customer_ids_set:
+            target_map[sid] = row
+
+    # 全顧客リストをメモリ上で構築
+    all_rows = []
+    for row in all_sell:
+        all_rows.append({
+            "id": str(row["id"]),
+            "year": row["year"],
+            "case_number": row["case_number"] or "",
+            "customer_name": row["customer_name"] or "",
+            "phone": row["phone"] or "",
+            "assessment_address": row["assessment_address"] or "",
+            "inquiry_date": format_date(row["inquiry_date"]),
+            "inquiry_source": row["inquiry_source"] or "",
+        })
+
+    results = {}
+    for cid, target in target_map.items():
+        source = target["inquiry_source"] or ""
+        rule = dup_rules.get(source, {})
+        check_days = rule.get("duplicate_check_days")
+        if not check_days:
+            continue
+
+        target_date = target["inquiry_date"]
+        if not target_date:
+            continue
+
+        target_name = (target["customer_name"] or "").strip()
+        target_phone = (target["phone"] or "").strip()
+        target_address = (target["assessment_address"] or "").strip()
+
+        if not target_name and not target_phone and not target_address:
+            continue
+
+        if isinstance(target_date, date):
+            t_date = target_date
+        else:
+            t_date = parse_date(str(target_date))
+        if not t_date:
+            continue
+
+        date_from = t_date - timedelta(days=int(check_days))
+        date_to = t_date + timedelta(days=int(check_days))
+
+        duplicates = []
+        for row in all_rows:
+            if row["id"] == cid:
+                continue
+            r_date = parse_date(row["inquiry_date"])
+            if not r_date:
+                continue
+            if r_date < date_from or r_date > date_to:
+                continue
+
+            # OR条件: 氏名・電話番号・査定住所のいずれか一致
+            match = False
+            r_name = row["customer_name"].strip()
+            r_phone = row["phone"].strip()
+            r_address = row["assessment_address"].strip()
+
+            if target_name and r_name and target_name == r_name:
+                match = True
+            if not match and target_phone and r_phone and target_phone == r_phone:
+                match = True
+            if not match and target_address and r_address and target_address == r_address:
+                match = True
+
+            if match:
+                duplicates.append({
+                    "id": row["id"],
+                    "year": row["year"],
+                    "case_number": row["case_number"],
+                    "customer_name": row["customer_name"],
+                    "inquiry_date": row["inquiry_date"],
+                    "inquiry_source": row["inquiry_source"],
+                })
+
+        if duplicates:
+            results[cid] = duplicates
+
+    return jsonify(results)
 
 
 @app.route("/api/customers/years", methods=["GET"])

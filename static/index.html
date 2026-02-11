@@ -506,6 +506,113 @@
     .billing-exclusion-badge.exclusion-no { background: #EF4444; color: #fff; }
     .billing-exclusion-badge.exclusion-yes { background: #3B82F6; color: #fff; }
 
+    /* 除外申請期限ハイライト */
+    .exclusion-deadline-near { background-color: #FEF3C7 !important; }
+    .exclusion-deadline-urgent { background-color: #FDE68A !important; }
+
+    /* 重複バッジ */
+    .duplicate-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 500;
+      margin: 1px 2px;
+      white-space: nowrap;
+      background: #EF4444;
+      color: #fff;
+      cursor: pointer;
+      position: relative;
+    }
+    .duplicate-badge:hover { background: #DC2626; }
+
+    /* 重複ポップアップ */
+    .duplicate-popup {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      z-index: 1100;
+      background: #fff;
+      border: 1px solid var(--gray-200);
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      min-width: 280px;
+      max-height: 200px;
+      overflow-y: auto;
+      padding: 4px 0;
+    }
+    .duplicate-popup-item {
+      padding: 8px 12px;
+      font-size: 12px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--gray-100);
+      transition: background 0.15s;
+    }
+    .duplicate-popup-item:last-child { border-bottom: none; }
+    .duplicate-popup-item:hover { background: var(--gray-50); }
+
+    /* ルール管理カード */
+    .exclusion-rule-card {
+      border: 1px solid var(--gray-200);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 10px;
+      background: var(--gray-50);
+    }
+    .exclusion-rule-card .rule-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .exclusion-rule-card .rule-header input { flex: 1; }
+    .exclusion-rule-card .rule-fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .exclusion-rule-card .rule-sources {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .exclusion-rule-card .rule-sources label {
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      cursor: pointer;
+    }
+    .rule-delete-btn {
+      background: none;
+      border: 1px solid var(--danger-color);
+      color: var(--danger-color);
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .rule-delete-btn:hover { background: var(--danger-color); color: #fff; }
+    .rule-add-btn {
+      display: block;
+      width: 100%;
+      padding: 8px;
+      border: 2px dashed var(--gray-300);
+      border-radius: 8px;
+      background: none;
+      color: var(--gray-500);
+      font-size: 13px;
+      cursor: pointer;
+      margin-bottom: 12px;
+    }
+    .rule-add-btn:hover { border-color: var(--primary-color); color: var(--primary-color); }
+
+    /* 除外ルールドロップダウン（編集フォーム内） */
+    .exclusion-rules-section { margin-top: 8px; }
+    .exclusion-rules-section .form-grid { margin-top: 4px; }
+
     .progress-grid {
       display: flex;
       flex-wrap: wrap;
@@ -1094,6 +1201,7 @@
                 <button class="btn btn-outline" id="btnExportCustomers">CSV出力</button>
                 <button class="btn btn-outline" id="btnCustomerMasters">ﾏｽﾀｰ管理</button>
                 <button class="btn btn-outline" id="btnCustomerStatusColors">ﾗﾍﾞﾙ色設定</button>
+                <button class="btn btn-outline" id="btnExclusionSettings">除外ﾙｰﾙ管理</button>
               </div>
             </div>
           </div>
@@ -1206,6 +1314,7 @@
               </select>
             </div>
           </div>
+          <div id="dynamicExclusionRules" class="exclusion-rules-section"></div>
         </div>
 
         <!-- 買顧客専用フィールド -->
@@ -1377,6 +1486,46 @@
         </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-outline" data-close="modalCustomerStatusColors">ｷｬﾝｾﾙ</button>
+          <button type="submit" class="btn btn-primary">保存する</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 除外ルール管理モーダル -->
+  <div class="modal-backdrop hidden" id="modalExclusionSettings">
+    <div class="modal" style="max-width: 760px;">
+      <div class="modal-header">
+        <h3 class="modal-title">除外ﾙｰﾙ管理</h3>
+        <button class="modal-close" data-close="modalExclusionSettings">×</button>
+      </div>
+      <form id="exclusionSettingsForm">
+        <div style="margin-bottom: 16px; display: flex; align-items: center; gap: 12px;">
+          <label style="font-size: 13px; white-space: nowrap; font-weight: 600;">ﾊｲﾗｲﾄ閾値(日)</label>
+          <input type="number" id="exclusionThresholdDays" class="form-control" style="width: 80px;" min="0" value="5">
+          <span style="font-size: 11px; color: var(--gray-500);">期限まで残り何日以内で色付け開始</span>
+        </div>
+
+        <h4 style="font-size: 13px; color: var(--gray-700); margin: 0 0 8px; border-bottom: 1px solid var(--gray-200); padding-bottom: 6px;">除外ルール定義</h4>
+        <div id="exclusionRuleCards" style="max-height: 380px; overflow-y: auto; margin-bottom: 8px;"></div>
+        <button type="button" class="rule-add-btn" id="btnAddExclusionRule">+ ルール追加</button>
+
+        <h4 style="font-size: 13px; color: var(--gray-700); margin: 16px 0 8px; border-bottom: 1px solid var(--gray-200); padding-bottom: 6px;">反響ごとの設定</h4>
+        <div class="table-container" style="max-height: 200px; overflow-y: auto;">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:40%">反響名</th>
+                <th style="width:30%">つながらない(日)</th>
+                <th style="width:30%">重複ﾁｪｯｸ(日)</th>
+              </tr>
+            </thead>
+            <tbody id="exclusionSourceSettingsBody"></tbody>
+          </table>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" data-close="modalExclusionSettings">ｷｬﾝｾﾙ</button>
           <button type="submit" class="btn btn-primary">保存する</button>
         </div>
       </form>
@@ -4436,11 +4585,17 @@
       perPage: 20,
       editingCustomer: null,
       masters: {},
-      statusColors: {}
+      statusColors: {},
+      ruleDefinitions: { highlight_threshold_days: 5, rules: [] },
+      noContactRules: {},
+      duplicateCheckRules: {},
+      highlightThresholdDays: 5,
+      duplicateResults: {}
     };
 
     async function initCustomerPage() {
       await loadCustomerMasters();
+      await loadExclusionSettings();
       await loadCustomerYears();
       await loadCustomers();
     }
@@ -4711,6 +4866,14 @@
         renderCustomerTable();
         renderCustomerPagination();
         el("customerSummary").textContent = `${customerState.customers.length}件の顧客が見つかりました`;
+
+        // 売カテゴリの場合、重複チェックを非同期実行
+        if (customerState.category === "sell" && customerState.customers.length > 0) {
+          checkDuplicates().then(() => {
+            renderCustomerTable();
+            renderCustomerPagination();
+          }).catch(err => console.error("重複チェックエラー:", err));
+        }
       } catch (err) {
         console.error("顧客取得エラー:", err);
         el("customersBody").innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--danger-color);padding:20px;">データの読み込みに失敗しました</td></tr>`;
@@ -4800,7 +4963,34 @@
         const deleteName = toHalfwidthKana(c.customer_name || "");
         const inquiryDateLabel = formatInquiryDateShort(c.inquiry_date);
 
-        return `<tr style="cursor:pointer;" onclick="onCustomerRowClick(event, '${c.id}')">
+        // 除外申請期限ハイライト計算（ルール定義ベース）
+        let rowBgStyle = "";
+        if (customerState.category === "sell" && c.inquiry_date) {
+          const source = c.inquiry_source || "";
+          const applicableRules = getApplicableRules(source);
+          const exData = c.exclusion_data || {};
+          const threshold = customerState.highlightThresholdDays || 5;
+          let minDaysLeft = Infinity;
+          for (const rule of applicableRules) {
+            if (!rule.deadline_days) continue;
+            // ルール値が設定済みならスキップ
+            if (exData[rule.id]) continue;
+            const inquiryDate = new Date(c.inquiry_date);
+            const deadline = new Date(inquiryDate);
+            deadline.setDate(deadline.getDate() + rule.deadline_days);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const daysLeft = Math.ceil((deadline - today) / (1000 * 60 * 60 * 24));
+            if (daysLeft > 0 && daysLeft < minDaysLeft) minDaysLeft = daysLeft;
+          }
+          if (minDaysLeft <= Math.floor(threshold / 2)) {
+            rowBgStyle = "background-color:#FDE68A;";
+          } else if (minDaysLeft <= threshold) {
+            rowBgStyle = "background-color:#FEF3C7;";
+          }
+        }
+
+        return `<tr style="cursor:pointer;${rowBgStyle}" onclick="onCustomerRowClick(event, '${c.id}')">
           <td style="white-space:nowrap;">${c.case_number || "-"}</td>
           <td><span class="customer-status-badge" style="background:${statusStyle.bg};color:${statusStyle.color};">${statusLabel}</span></td>
           <td style="white-space:nowrap;">${staffLabel}</td>
@@ -4849,8 +5039,285 @@
         }
       }
 
-      return `<div class="progress-badges-wrap">${badgesHtml}${exclusionHtml}</div>`;
+      // 重複バッジ
+      let duplicateHtml = "";
+      if (category === "sell" && customerState.duplicateResults[customer.id]) {
+        const dupCount = customerState.duplicateResults[customer.id].length;
+        duplicateHtml = `<span class="duplicate-badge" onclick="event.stopPropagation(); toggleDuplicatePopup(event, '${customer.id}')" title="重複${dupCount}件">重複${dupCount}</span>`;
+      }
+
+      return `<div class="progress-badges-wrap">${badgesHtml}${exclusionHtml}${duplicateHtml}</div>`;
     }
+
+    // ================== 除外申請サポート ==================
+    async function loadExclusionSettings() {
+      try {
+        const data = await apiFetch("/api/exclusion-settings");
+        customerState.ruleDefinitions = data.rule_definitions || { highlight_threshold_days: 5, rules: [] };
+        customerState.noContactRules = data.no_contact_rules || {};
+        customerState.duplicateCheckRules = data.duplicate_check_rules || {};
+        customerState.highlightThresholdDays = customerState.ruleDefinitions.highlight_threshold_days || 5;
+      } catch (err) {
+        console.error("除外設定取得エラー:", err);
+      }
+    }
+
+    function getApplicableRules(inquirySource) {
+      const rules = customerState.ruleDefinitions.rules || [];
+      return rules.filter(r => (r.applicable_sources || []).includes(inquirySource));
+    }
+
+    function openExclusionSettingsModal() {
+      const sources = (customerState.masters.inquiry_source_sell || []);
+      el("exclusionThresholdDays").value = customerState.highlightThresholdDays || 5;
+
+      // ルールカード描画
+      renderExclusionRuleCards();
+
+      // 反響ごとの設定（つながらない、重複チェック）
+      const noContact = customerState.noContactRules || {};
+      const dupRules = customerState.duplicateCheckRules || {};
+      const stBody = el("exclusionSourceSettingsBody");
+      stBody.innerHTML = sources.map(src => {
+        const noContactDays = (noContact[src] && noContact[src].no_contact_days) || "";
+        const dupCheckDays = (dupRules[src] && dupRules[src].duplicate_check_days) || "";
+        return `<tr data-source="${src}">
+          <td style="font-size:12px;">${src}</td>
+          <td><input type="number" class="form-control" name="no_contact_days" value="${noContactDays}" min="0" style="width:80px;padding:4px 6px;font-size:12px;" placeholder="無し"></td>
+          <td><input type="number" class="form-control" name="duplicate_check_days" value="${dupCheckDays}" min="0" style="width:80px;padding:4px 6px;font-size:12px;" placeholder="無し"></td>
+        </tr>`;
+      }).join("");
+
+      openModal("modalExclusionSettings");
+    }
+
+    function renderExclusionRuleCards() {
+      const container = el("exclusionRuleCards");
+      const rules = customerState.ruleDefinitions.rules || [];
+      const sources = (customerState.masters.inquiry_source_sell || []);
+
+      container.innerHTML = rules.map((rule, idx) => {
+        const optionsStr = (rule.options || []).join(", ");
+        const applicableSources = rule.applicable_sources || [];
+        const sourceCheckboxes = sources.map(src => {
+          const checked = applicableSources.includes(src) ? "checked" : "";
+          return `<label><input type="checkbox" value="${src}" ${checked}><span>${src}</span></label>`;
+        }).join("");
+
+        return `<div class="exclusion-rule-card" data-rule-idx="${idx}">
+          <div class="rule-header">
+            <input type="text" class="form-control" name="rule_name" value="${rule.name || ""}" placeholder="ﾙｰﾙ名（例: 課金除外）" style="font-size:13px;padding:4px 8px;">
+            <button type="button" class="rule-delete-btn" onclick="deleteExclusionRule(${idx})">削除</button>
+          </div>
+          <div class="rule-fields">
+            <div class="form-group" style="margin:0;">
+              <label style="font-size:11px;margin-bottom:2px;">選択肢（カンマ区切り）</label>
+              <input type="text" class="form-control" name="rule_options" value="${optionsStr}" placeholder="除外〇, 除外×, 除外中" style="font-size:12px;padding:4px 8px;">
+            </div>
+            <div class="form-group" style="margin:0;">
+              <label style="font-size:11px;margin-bottom:2px;">申請期限(日)</label>
+              <input type="number" class="form-control" name="rule_deadline" value="${rule.deadline_days || ""}" min="0" placeholder="無し" style="font-size:12px;padding:4px 8px;width:100px;">
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--gray-500);margin-bottom:4px;">適用する反響:</div>
+          <div class="rule-sources">${sourceCheckboxes}</div>
+        </div>`;
+      }).join("");
+    }
+
+    function addExclusionRule() {
+      const rules = customerState.ruleDefinitions.rules || [];
+      rules.push({
+        id: "r_" + Date.now(),
+        name: "",
+        options: [],
+        deadline_days: null,
+        applicable_sources: []
+      });
+      customerState.ruleDefinitions.rules = rules;
+      renderExclusionRuleCards();
+    }
+
+    function deleteExclusionRule(idx) {
+      const rules = customerState.ruleDefinitions.rules || [];
+      if (idx >= 0 && idx < rules.length) {
+        if (!confirm(`ﾙｰﾙ「${rules[idx].name || "(無名)"}」を削除しますか？`)) return;
+        rules.splice(idx, 1);
+        customerState.ruleDefinitions.rules = rules;
+        renderExclusionRuleCards();
+      }
+    }
+
+    function collectExclusionRuleCards() {
+      const cards = el("exclusionRuleCards").querySelectorAll(".exclusion-rule-card");
+      const existingRules = customerState.ruleDefinitions.rules || [];
+      const rules = [];
+      cards.forEach((card, idx) => {
+        const name = card.querySelector('input[name="rule_name"]').value.trim();
+        const optionsStr = card.querySelector('input[name="rule_options"]').value;
+        const deadlineVal = card.querySelector('input[name="rule_deadline"]').value;
+        const checkedSources = Array.from(card.querySelectorAll('.rule-sources input[type="checkbox"]:checked')).map(cb => cb.value);
+        const options = optionsStr.split(",").map(s => s.trim()).filter(Boolean);
+        const deadline = deadlineVal ? parseInt(deadlineVal) : null;
+        const existingId = (existingRules[idx] && existingRules[idx].id) || ("r_" + Date.now() + "_" + idx);
+        rules.push({
+          id: existingId,
+          name: name,
+          options: options,
+          deadline_days: (deadline && deadline > 0) ? deadline : null,
+          applicable_sources: checkedSources
+        });
+      });
+      return rules;
+    }
+
+    async function saveExclusionSettings(e) {
+      e.preventDefault();
+      const threshold = parseInt(el("exclusionThresholdDays").value) || 5;
+      const rules = collectExclusionRuleCards();
+
+      // 反響ごとの設定
+      const sourceRows = el("exclusionSourceSettingsBody").querySelectorAll("tr[data-source]");
+      const noContact = {};
+      const dupRules = {};
+      sourceRows.forEach(row => {
+        const src = row.getAttribute("data-source");
+        const noContactVal = row.querySelector('input[name="no_contact_days"]').value;
+        const dupVal = row.querySelector('input[name="duplicate_check_days"]').value;
+        const noContactDays = noContactVal ? parseInt(noContactVal) : null;
+        const dupDays = dupVal ? parseInt(dupVal) : null;
+        if (noContactDays && noContactDays > 0) {
+          noContact[src] = { no_contact_days: noContactDays };
+        }
+        if (dupDays && dupDays > 0) {
+          dupRules[src] = { duplicate_check_days: dupDays };
+        }
+      });
+
+      const payload = {
+        rule_definitions: { highlight_threshold_days: threshold, rules: rules },
+        no_contact_rules: noContact,
+        duplicate_check_rules: dupRules,
+      };
+
+      try {
+        const result = await apiFetch("/api/exclusion-settings", { method: "PUT", body: JSON.stringify(payload) });
+        customerState.ruleDefinitions = result.rule_definitions || payload.rule_definitions;
+        customerState.noContactRules = result.no_contact_rules || payload.no_contact_rules;
+        customerState.duplicateCheckRules = result.duplicate_check_rules || payload.duplicate_check_rules;
+        customerState.highlightThresholdDays = customerState.ruleDefinitions.highlight_threshold_days || 5;
+        closeModal("modalExclusionSettings");
+        renderCustomerTable();
+        // 重複チェック再実行
+        if (customerState.category === "sell" && customerState.customers.length > 0) {
+          checkDuplicates().then(() => {
+            renderCustomerTable();
+            renderCustomerPagination();
+          }).catch(err => console.error("重複チェックエラー:", err));
+        }
+      } catch (err) {
+        alert("保存に失敗しました: " + (err.message || err));
+      }
+    }
+
+    function renderDynamicExclusionRules(inquirySource, exclusionData) {
+      const container = el("dynamicExclusionRules");
+      if (!container) return;
+      const applicableRules = getApplicableRules(inquirySource);
+      if (applicableRules.length === 0) {
+        container.innerHTML = "";
+        return;
+      }
+      const data = exclusionData || {};
+      let html = `<h4 style="margin: 16px 0 8px; font-size: 14px; color: var(--gray-700);">除外ﾙｰﾙ</h4><div class="form-grid">`;
+      applicableRules.forEach(rule => {
+        const currentVal = data[rule.id] || "";
+        const options = (rule.options || []).map(opt => {
+          const selected = opt === currentVal ? "selected" : "";
+          return `<option value="${opt}" ${selected}>${opt}</option>`;
+        }).join("");
+        html += `<div class="form-group">
+          <label style="font-size:12px;">${rule.name}</label>
+          <select name="excl_rule_${rule.id}" style="padding:6px 10px;border-radius:6px;border:1px solid var(--gray-300);font-size:13px;">
+            <option value="">-- 未設定 --</option>
+            ${options}
+          </select>
+        </div>`;
+      });
+      html += `</div>`;
+      container.innerHTML = html;
+    }
+
+    function collectDynamicExclusionData() {
+      const data = {};
+      const rules = customerState.ruleDefinitions.rules || [];
+      rules.forEach(rule => {
+        const select = document.querySelector(`select[name="excl_rule_${rule.id}"]`);
+        if (select && select.value) {
+          data[rule.id] = select.value;
+        }
+      });
+      return data;
+    }
+
+    async function checkDuplicates() {
+      const ids = customerState.customers.map(c => c.id);
+      if (ids.length === 0) {
+        customerState.duplicateResults = {};
+        return;
+      }
+      try {
+        const result = await apiFetch("/api/customers/sell/check-duplicates", {
+          method: "POST",
+          body: JSON.stringify({ customer_ids: ids, category: "sell" })
+        });
+        customerState.duplicateResults = result || {};
+      } catch (err) {
+        console.error("重複チェックエラー:", err);
+        customerState.duplicateResults = {};
+      }
+    }
+
+    function toggleDuplicatePopup(event, customerId) {
+      event.stopPropagation();
+      // 既存のポップアップを閉じる
+      document.querySelectorAll(".duplicate-popup").forEach(p => p.remove());
+
+      const dups = customerState.duplicateResults[customerId];
+      if (!dups || dups.length === 0) return;
+
+      const badge = event.currentTarget;
+      const popup = document.createElement("div");
+      popup.className = "duplicate-popup";
+      popup.innerHTML = dups.map(d => {
+        const dateShort = d.inquiry_date ? d.inquiry_date.replace(/^(\d{4})-/, (m, y) => y.slice(2) + "-") : "-";
+        return `<div class="duplicate-popup-item" onclick="event.stopPropagation(); openDuplicateDetail('${d.id}', ${d.year})">${d.case_number || "-"} | ${d.customer_name || "-"} | ${dateShort} | ${d.inquiry_source || "-"}</div>`;
+      }).join("");
+
+      badge.style.position = "relative";
+      badge.appendChild(popup);
+    }
+
+    function openDuplicateDetail(customerId, year) {
+      // ポップアップを閉じる
+      document.querySelectorAll(".duplicate-popup").forEach(p => p.remove());
+      // 対象顧客の詳細モーダルを開く（一時的にカテゴリ/年を変更して表示）
+      const origCategory = customerState.category;
+      const origYear = customerState.year;
+      customerState.category = "sell";
+      customerState.year = year;
+      openCustomerDetail(customerId).finally(() => {
+        customerState.category = origCategory;
+        customerState.year = origYear;
+      });
+    }
+
+    // ポップアップ外クリックで閉じる
+    document.addEventListener("click", (e) => {
+      if (!e.target.closest(".duplicate-badge") && !e.target.closest(".duplicate-popup")) {
+        document.querySelectorAll(".duplicate-popup").forEach(p => p.remove());
+      }
+    });
 
     function renderCustomerPagination() {
       const totalPages = Math.ceil(customerState.customers.length / customerState.perPage);
@@ -4893,6 +5360,8 @@
       });
       showCategoryFields(category);
       applyCustomerMastersToForms(); // カテゴリ変更時に選択肢を更新
+      // 除外ルール管理ボタンは売カテゴリのみ表示
+      el("btnExclusionSettings").style.display = category === "sell" ? "" : "none";
       loadCustomers();
     }
 
@@ -4922,6 +5391,10 @@
           }
         }
       }
+
+      // 除外ルールドロップダウンをクリア
+      const dynRules = el("dynamicExclusionRules");
+      if (dynRules) dynRules.innerHTML = "";
 
       openModal("modalCustomer");
     }
@@ -4963,6 +5436,8 @@
           form.elements["mediation"].checked = customer.mediation === "済";
           form.elements["contract"].checked = customer.contract === "済";
           form.elements["billing_exclusion"].value = customer.billing_exclusion || "";
+          // 動的除外ルールドロップダウン
+          renderDynamicExclusionRules(customer.inquiry_source || "", customer.exclusion_data || {});
         } else if (customerState.category === "buy") {
           form.elements["target_property"].value = customer.target_property || "";
           form.elements["buy_first_call"].checked = customer.first_call === "済";
@@ -5072,6 +5547,10 @@
         payload.mediation = form.elements["mediation"].checked ? "済" : "未";
         payload.contract = form.elements["contract"].checked ? "済" : "未";
         payload.billing_exclusion = formData.get("billing_exclusion") || "";
+        // 動的除外ルールデータ収集
+        const existingExclData = (customerState.editingCustomer && customerState.editingCustomer.exclusion_data) || {};
+        const newExclData = collectDynamicExclusionData();
+        payload.exclusion_data = { ...existingExclData, ...newExclData };
       } else if (category === "buy") {
         payload.target_property = formData.get("target_property");
         payload.first_call = form.elements["buy_first_call"].checked ? "済" : "未";
@@ -5206,9 +5685,19 @@
     el("btnExportCustomers").addEventListener("click", exportCustomers);
     el("btnCustomerMasters").addEventListener("click", openCustomerMastersModal);
     el("btnCustomerStatusColors").addEventListener("click", openCustomerStatusColorsModal);
+    el("btnExclusionSettings").addEventListener("click", openExclusionSettingsModal);
+    el("btnAddExclusionRule").addEventListener("click", addExclusionRule);
+    // 反響変更時に除外ルールドロップダウンを更新
+    el("customerForm").elements["inquiry_source"].addEventListener("change", (e) => {
+      if (customerState.category === "sell") {
+        const exData = (customerState.editingCustomer && customerState.editingCustomer.exclusion_data) || {};
+        renderDynamicExclusionRules(e.target.value, exData);
+      }
+    });
     el("customerForm").addEventListener("submit", saveCustomer);
     el("customerMastersForm").addEventListener("submit", saveCustomerMasters);
     el("customerStatusColorsForm").addEventListener("submit", submitCustomerStatusColors);
+    el("exclusionSettingsForm").addEventListener("submit", saveExclusionSettings);
     el("btnEditCustomerFromDetail").addEventListener("click", () => {
       closeModal("modalCustomerDetail");
       if (customerState.editingCustomer) {
