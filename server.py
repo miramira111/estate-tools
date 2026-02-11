@@ -2025,8 +2025,9 @@ def api_check_duplicates():
     for cid, target in target_map.items():
         source = target["inquiry_source"] or ""
         rule = dup_rules.get(source, {})
+        check_type = rule.get("duplicate_check_type", "days")
         check_days = rule.get("duplicate_check_days")
-        if not check_days:
+        if check_type == "days" and not check_days:
             continue
 
         target_date = target["inquiry_date"]
@@ -2047,8 +2048,13 @@ def api_check_duplicates():
         if not t_date:
             continue
 
-        date_from = t_date - timedelta(days=int(check_days))
-        date_to = t_date + timedelta(days=int(check_days))
+        if check_type == "prev_month":
+            first_of_month = t_date.replace(day=1)
+            date_to = first_of_month - timedelta(days=1)
+            date_from = date_to.replace(day=1)
+        else:
+            date_from = t_date - timedelta(days=int(check_days))
+            date_to = t_date + timedelta(days=int(check_days))
 
         duplicates = []
         for row in all_rows:
