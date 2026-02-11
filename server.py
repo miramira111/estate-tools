@@ -2060,20 +2060,20 @@ def api_check_duplicates():
             if r_date < date_from or r_date > date_to:
                 continue
 
-            # OR条件: 氏名・電話番号・査定住所のいずれか一致
-            match = False
+            # 2項目以上一致で重複とみなす（氏名・電話番号・査定住所）
             r_name = row["customer_name"].strip()
             r_phone = row["phone"].strip()
             r_address = row["assessment_address"].strip()
 
+            match_count = 0
             if target_name and r_name and target_name == r_name:
-                match = True
-            if not match and target_phone and r_phone and target_phone == r_phone:
-                match = True
-            if not match and target_address and r_address and target_address == r_address:
-                match = True
+                match_count += 1
+            if target_phone and r_phone and target_phone == r_phone:
+                match_count += 1
+            if target_address and r_address and target_address == r_address:
+                match_count += 1
 
-            if match:
+            if match_count >= 2:
                 duplicates.append({
                     "id": row["id"],
                     "year": row["year"],

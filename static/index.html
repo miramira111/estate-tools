@@ -5414,7 +5414,8 @@
       popup.className = "duplicate-popup";
       popup.innerHTML = dups.map(d => {
         const dateShort = d.inquiry_date ? d.inquiry_date.replace(/^(\d{4})-/, (m, y) => y.slice(2) + "-") : "-";
-        return `<div class="duplicate-popup-item" onclick="event.stopPropagation(); openDuplicateDetail('${d.id}', ${d.year})">${d.case_number || "-"} | ${d.customer_name || "-"} | ${dateShort} | ${d.inquiry_source || "-"}</div>`;
+        const label = `${d.case_number || "-"} | ${d.customer_name || "-"} | ${dateShort} | ${d.inquiry_source || "-"}`;
+        return `<div class="duplicate-popup-item" onclick="event.stopPropagation(); openDuplicateDetail('${d.id}', ${d.year})" title="${label}"><span style="font-weight:600;">重複案件を表示</span><br><span style="color:var(--gray-500);font-size:11px;">${label}</span></div>`;
       }).join("");
 
       badge.style.position = "relative";
