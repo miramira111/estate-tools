@@ -659,6 +659,7 @@ def db_row_to_customer(row):
         "visit_status": row["visit_status"] or "",
         "mediation": row["mediation_status"] or "",
         "contract": row["contract_status"] or "",
+        "billing_exclusion": row.get("billing_exclusion") or "",
         "expected_yield": row["expected_yield"] or "",
         "yield_rate": row["expected_yield"] or "",
         "expected_rent": row["expected_rent"] or "",
@@ -709,7 +710,7 @@ def save_customer(category, year, customer):
                     customer_name, phone, current_address, email,
                     first_call, call_status, mail_status, sms_status,
                     showing_status, pre_assessment, visit_status,
-                    mediation_status, contract_status,
+                    mediation_status, contract_status, billing_exclusion,
                     expected_yield, expected_rent, self_funds, desired_loan, preferred_area,
                     memo, created_at, updated_at
                 ) VALUES (
@@ -719,7 +720,7 @@ def save_customer(category, year, customer):
                     %(customer_name)s, %(phone)s, %(current_address)s, %(email)s,
                     %(first_call)s, %(call_status)s, %(mail_status)s, %(sms_status)s,
                     %(showing_status)s, %(pre_assessment)s, %(visit_status)s,
-                    %(mediation_status)s, %(contract_status)s,
+                    %(mediation_status)s, %(contract_status)s, %(billing_exclusion)s,
                     %(expected_yield)s, %(expected_rent)s, %(self_funds)s, %(desired_loan)s, %(preferred_area)s,
                     %(memo)s, %(created_at)s, %(updated_at)s
                 )
@@ -749,6 +750,7 @@ def save_customer(category, year, customer):
                     visit_status = EXCLUDED.visit_status,
                     mediation_status = EXCLUDED.mediation_status,
                     contract_status = EXCLUDED.contract_status,
+                    billing_exclusion = EXCLUDED.billing_exclusion,
                     expected_yield = EXCLUDED.expected_yield,
                     expected_rent = EXCLUDED.expected_rent,
                     self_funds = EXCLUDED.self_funds,
@@ -784,6 +786,7 @@ def save_customer(category, year, customer):
                     "visit_status": customer.get("visit_status") or None,
                     "mediation_status": customer.get("mediation") or customer.get("mediation_status") or None,
                     "contract_status": customer.get("contract") or customer.get("contract_status") or None,
+                    "billing_exclusion": customer.get("billing_exclusion") or None,
                     "expected_yield": customer.get("yield_rate") or customer.get("expected_yield") or None,
                     "expected_rent": customer.get("expected_rent") or None,
                     "self_funds": customer.get("own_funds") or customer.get("self_funds") or None,
@@ -2145,7 +2148,7 @@ def api_export_customers(category, year):
     if category == "sell":
         headers = ["案件番号", "ステータス", "担当者", "反響日", "反響媒体", "連絡方法",
                    "物件種別", "査定住所", "氏名", "電話番号", "現住所", "メール",
-                   "電話", "メール", "SMS", "査定前", "訪問", "媒介", "契約", "メモ"]
+                   "電話", "メール", "SMS", "査定前", "訪問", "媒介", "契約", "課金除外", "メモ"]
     elif category == "buy":
         headers = ["案件番号", "ステータス", "担当者", "反響日", "反響媒体", "連絡方法",
                    "物件種別", "反響物件", "氏名", "電話番号", "現住所", "メール",
@@ -2168,7 +2171,7 @@ def api_export_customers(category, year):
                 c.get("phone"), c.get("current_address"), c.get("email"),
                 c.get("call_status"), c.get("mail_status"), c.get("sms_status"),
                 c.get("pre_assessment"), c.get("visit_status"), c.get("mediation"),
-                c.get("contract"), c.get("memo")
+                c.get("contract"), c.get("billing_exclusion"), c.get("memo")
             ]
         elif category == "buy":
             row = [

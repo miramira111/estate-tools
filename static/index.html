@@ -491,7 +491,20 @@
       display: flex;
       flex-wrap: nowrap;
       gap: 2px;
+      align-items: center;
     }
+    .billing-exclusion-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 500;
+      margin: 1px 2px;
+      white-space: nowrap;
+    }
+    .billing-exclusion-badge.exclusion-active { background: #F59E0B; color: #fff; }
+    .billing-exclusion-badge.exclusion-no { background: #EF4444; color: #fff; }
+    .billing-exclusion-badge.exclusion-yes { background: #3B82F6; color: #fff; }
 
     .progress-grid {
       display: flex;
@@ -1181,6 +1194,17 @@
             <label class="progress-item"><input type="checkbox" name="pre_assessment" value="済"><span>査定</span></label>
             <label class="progress-item"><input type="checkbox" name="mediation" value="済"><span>媒介</span></label>
             <label class="progress-item"><input type="checkbox" name="contract" value="済"><span>契約</span></label>
+          </div>
+          <h4 style="margin: 16px 0 12px; font-size: 14px; color: var(--gray-700);">課金除外</h4>
+          <div class="form-grid">
+            <div class="form-group">
+              <select name="billing_exclusion" style="padding:6px 10px;border-radius:6px;border:1px solid var(--gray-300);font-size:13px;">
+                <option value="">-- 未設定 --</option>
+                <option value="除外中">除外中</option>
+                <option value="除外×">除外×</option>
+                <option value="除外〇">除外〇</option>
+              </select>
+            </div>
           </div>
         </div>
 
@@ -4814,7 +4838,18 @@
       }
 
       const badgesHtml = badges.map(b => `<span class="progress-badge ${b.done ? 'done' : 'pending'}">${b.label}</span>`).join("");
-      return `<div class="progress-badges-wrap">${badgesHtml}</div>`;
+
+      let exclusionHtml = "";
+      if (category === "sell" && customer.billing_exclusion) {
+        const exclusionClass = customer.billing_exclusion === "除外中" ? "exclusion-active"
+          : customer.billing_exclusion === "除外×" ? "exclusion-no"
+          : customer.billing_exclusion === "除外〇" ? "exclusion-yes" : "";
+        if (exclusionClass) {
+          exclusionHtml = `<span class="billing-exclusion-badge ${exclusionClass}">${customer.billing_exclusion}</span>`;
+        }
+      }
+
+      return `<div class="progress-badges-wrap">${badgesHtml}${exclusionHtml}</div>`;
     }
 
     function renderCustomerPagination() {
@@ -4927,6 +4962,7 @@
           form.elements["pre_assessment"].checked = customer.pre_assessment === "済";
           form.elements["mediation"].checked = customer.mediation === "済";
           form.elements["contract"].checked = customer.contract === "済";
+          form.elements["billing_exclusion"].value = customer.billing_exclusion || "";
         } else if (customerState.category === "buy") {
           form.elements["target_property"].value = customer.target_property || "";
           form.elements["buy_first_call"].checked = customer.first_call === "済";
@@ -4978,6 +5014,9 @@
 
         if (customerState.category === "sell") {
           html += `<div class="customer-detail-label">査定住所</div><div class="customer-detail-value">${displayValue(customer.assessment_address)}</div>`;
+          if (customer.billing_exclusion) {
+            html += `<div class="customer-detail-label">課金除外</div><div class="customer-detail-value">${displayValue(customer.billing_exclusion)}</div>`;
+          }
         } else if (customerState.category === "buy") {
           html += `<div class="customer-detail-label">反響物件・価格</div><div class="customer-detail-value">${displayValue(customer.target_property)}</div>`;
         } else {
@@ -5032,6 +5071,7 @@
         payload.pre_assessment = form.elements["pre_assessment"].checked ? "済" : "未";
         payload.mediation = form.elements["mediation"].checked ? "済" : "未";
         payload.contract = form.elements["contract"].checked ? "済" : "未";
+        payload.billing_exclusion = formData.get("billing_exclusion") || "";
       } else if (category === "buy") {
         payload.target_property = formData.get("target_property");
         payload.first_call = form.elements["buy_first_call"].checked ? "済" : "未";
