@@ -505,6 +505,23 @@
     .billing-exclusion-badge.exclusion-active { background: #F59E0B; color: #fff; }
     .billing-exclusion-badge.exclusion-no { background: #EF4444; color: #fff; }
     .billing-exclusion-badge.exclusion-yes { background: #3B82F6; color: #fff; }
+    .exclusion-required-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      background: #DC2626;
+      color: #fff;
+      margin: 1px 2px;
+      white-space: nowrap;
+    }
+    .no-contact-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 13px; }
+    .no-contact-table th, .no-contact-table td { border: 1px solid var(--gray-300); padding: 4px 8px; text-align: center; }
+    .no-contact-table th { background: var(--gray-100); font-size: 12px; font-weight: 600; }
+    .no-contact-table input[type="datetime-local"] { width: 100%; font-size: 12px; padding: 2px 4px; border: 1px solid var(--gray-300); border-radius: 4px; }
+    .no-contact-table select { font-size: 12px; padding: 2px 4px; border: 1px solid var(--gray-300); border-radius: 4px; }
+    .no-contact-table input[type="checkbox"] { width: 16px; height: 16px; }
 
     /* 除外申請期限ハイライト */
     .exclusion-deadline-near { background-color: #FEF3C7 !important; }
@@ -1315,6 +1332,7 @@
             </div>
           </div>
           <div id="dynamicExclusionRules" class="exclusion-rules-section"></div>
+          <div id="noContactLogSection"></div>
         </div>
 
         <!-- 買顧客専用フィールド -->
@@ -5036,6 +5054,23 @@
         }
       }
 
+      // 申請要バッジ
+      let requiredHtml = "";
+      if (category === "sell" && customer.inquiry_date) {
+        const be = (customer.billing_exclusion || "").trim();
+        if (be !== "除外〇") {
+          const srcConf = (customerState.sourceDeadlines || {})[customer.inquiry_source || ""] || {};
+          if (srcConf.deadline_days) {
+            const deadline = new Date(customer.inquiry_date);
+            deadline.setDate(deadline.getDate() + srcConf.deadline_days);
+            const today = new Date(); today.setHours(0,0,0,0);
+            if (deadline > today) {
+              requiredHtml = `<span class="exclusion-required-badge">申請要</span>`;
+            }
+          }
+        }
+      }
+
       // 重複バッジ
       let duplicateHtml = "";
       if (category === "sell" && customerState.duplicateResults[customer.id]) {
@@ -5043,7 +5078,7 @@
         duplicateHtml = `<span class="duplicate-badge" onclick="event.stopPropagation(); toggleDuplicatePopup(event, '${customer.id}')" title="重複${dupCount}件">重複${dupCount}</span>`;
       }
 
-      return `<div class="progress-badges-wrap">${badgesHtml}${exclusionHtml}${duplicateHtml}</div>`;
+      return `<div class="progress-badges-wrap">${badgesHtml}${exclusionHtml}${requiredHtml}${duplicateHtml}</div>`;
     }
 
     // ================== 除外申請サポート ==================
@@ -5266,6 +5301,85 @@
       return data;
     }
 
+    function renderNoContactLog(inquirySource, exclusionData) {
+      const container = el("noContactLogSection");
+      if (!container) return;
+      const srcConf = (customerState.noContactRules || {})[inquirySource] || {};
+      const days = srcConf.no_contact_days;
+      if (!days || days <= 0) {
+        container.innerHTML = "";
+        return;
+      }
+      const log = (exclusionData && exclusionData.no_contact_log) || [];
+      let html = `<h4 style="margin: 16px 0 8px; font-size: 14px; color: var(--gray-700);">つながらない連絡履歴</h4>`;
+      html += `<table class="no-contact-table"><thead><tr><th style="width:30px;">#</th><th>日時</th><th style="width:90px;">手段</th><th style="width:70px;">つながった</th></tr></thead><tbody>`;
+      for (let i = 0; i < days; i++) {
+        const entry = log[i] || {};
+        const dateVal = entry.date || "";
+        const methodVal = entry.method || "";
+        const connected = entry.connected || false;
+        html += `<tr>
+          <td>${i + 1}</td>
+          <td><input type="datetime-local" class="ncl-date" value="${dateVal}"></td>
+          <td><select class="ncl-method">
+            <option value="">--</option>
+            <option value="電話"${methodVal === "電話" ? " selected" : ""}>電話</option>
+            <option value="メール"${methodVal === "メール" ? " selected" : ""}>メール</option>
+            <option value="SMS"${methodVal === "SMS" ? " selected" : ""}>SMS</option>
+          </select></td>
+          <td><input type="checkbox" class="ncl-connected"${connected ? " checked" : ""}></td>
+        </tr>`;
+      }
+      html += `</tbody></table>`;
+      html += `<button type="button" class="btn btn-outline" style="margin-top:8px;font-size:12px;padding:4px 12px;" onclick="copyNoContactToClipboard()">クリップボードにコピー</button>`;
+      container.innerHTML = html;
+    }
+
+    function collectNoContactLog() {
+      const container = el("noContactLogSection");
+      if (!container) return [];
+      const rows = container.querySelectorAll(".no-contact-table tbody tr");
+      const log = [];
+      rows.forEach(row => {
+        const date = row.querySelector(".ncl-date").value || "";
+        const method = row.querySelector(".ncl-method").value || "";
+        const connected = row.querySelector(".ncl-connected").checked;
+        log.push({ date, method, connected });
+      });
+      return log;
+    }
+
+    function copyNoContactToClipboard() {
+      const container = el("noContactLogSection");
+      if (!container) return;
+      const rows = container.querySelectorAll(".no-contact-table tbody tr");
+      let lines = ["つながらない連絡履歴"];
+      let count = 0;
+      rows.forEach((row, i) => {
+        const dateVal = row.querySelector(".ncl-date").value;
+        if (!dateVal) return;
+        const method = row.querySelector(".ncl-method").value || "";
+        const connected = row.querySelector(".ncl-connected").checked;
+        const dt = new Date(dateVal);
+        const formatted = `${dt.getFullYear()}/${String(dt.getMonth()+1).padStart(2,"0")}/${String(dt.getDate()).padStart(2,"0")} ${String(dt.getHours()).padStart(2,"0")}:${String(dt.getMinutes()).padStart(2,"0")}`;
+        lines.push(`${i + 1}回目: ${formatted} ${method} ${connected ? "〇" : "×"}`);
+        count++;
+      });
+      if (count === 0) {
+        alert("コピーする履歴がありません。日時を入力してください。");
+        return;
+      }
+      const text = lines.join("\n");
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = container.querySelector("button");
+        if (btn) {
+          const orig = btn.textContent;
+          btn.textContent = "コピーしました!";
+          setTimeout(() => { btn.textContent = orig; }, 2000);
+        }
+      });
+    }
+
     async function checkDuplicates() {
       const ids = customerState.customers.map(c => c.id);
       if (ids.length === 0) {
@@ -5401,6 +5515,8 @@
       // 除外ルールドロップダウンをクリア
       const dynRules = el("dynamicExclusionRules");
       if (dynRules) dynRules.innerHTML = "";
+      const nclSection = el("noContactLogSection");
+      if (nclSection) nclSection.innerHTML = "";
 
       openModal("modalCustomer");
     }
@@ -5444,6 +5560,7 @@
           form.elements["billing_exclusion"].value = customer.billing_exclusion || "";
           // 動的除外ルールドロップダウン
           renderDynamicExclusionRules(customer.inquiry_source || "", customer.exclusion_data || {});
+          renderNoContactLog(customer.inquiry_source || "", customer.exclusion_data || {});
         } else if (customerState.category === "buy") {
           form.elements["target_property"].value = customer.target_property || "";
           form.elements["buy_first_call"].checked = customer.first_call === "済";
@@ -5556,7 +5673,8 @@
         // 動的除外ルールデータ収集
         const existingExclData = (customerState.editingCustomer && customerState.editingCustomer.exclusion_data) || {};
         const newExclData = collectDynamicExclusionData();
-        payload.exclusion_data = { ...existingExclData, ...newExclData };
+        const noContactLog = collectNoContactLog();
+        payload.exclusion_data = { ...existingExclData, ...newExclData, no_contact_log: noContactLog };
       } else if (category === "buy") {
         payload.target_property = formData.get("target_property");
         payload.first_call = form.elements["buy_first_call"].checked ? "済" : "未";
@@ -5698,6 +5816,7 @@
       if (customerState.category === "sell") {
         const exData = (customerState.editingCustomer && customerState.editingCustomer.exclusion_data) || {};
         renderDynamicExclusionRules(e.target.value, exData);
+        renderNoContactLog(e.target.value, exData);
       }
     });
     el("customerForm").addEventListener("submit", saveCustomer);
