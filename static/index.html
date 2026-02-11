@@ -1500,24 +1500,20 @@
         <button class="modal-close" data-close="modalExclusionSettings">×</button>
       </div>
       <form id="exclusionSettingsForm">
-        <div style="margin-bottom: 16px; display: flex; align-items: center; gap: 12px;">
-          <label style="font-size: 13px; white-space: nowrap; font-weight: 600;">ﾊｲﾗｲﾄ閾値(日)</label>
-          <input type="number" id="exclusionThresholdDays" class="form-control" style="width: 80px;" min="0" value="5">
-          <span style="font-size: 11px; color: var(--gray-500);">期限まで残り何日以内で色付け開始</span>
-        </div>
-
         <h4 style="font-size: 13px; color: var(--gray-700); margin: 0 0 8px; border-bottom: 1px solid var(--gray-200); padding-bottom: 6px;">除外ルール定義</h4>
-        <div id="exclusionRuleCards" style="max-height: 380px; overflow-y: auto; margin-bottom: 8px;"></div>
+        <div id="exclusionRuleCards" style="max-height: 300px; overflow-y: auto; margin-bottom: 8px;"></div>
         <button type="button" class="rule-add-btn" id="btnAddExclusionRule">+ ルール追加</button>
 
         <h4 style="font-size: 13px; color: var(--gray-700); margin: 16px 0 8px; border-bottom: 1px solid var(--gray-200); padding-bottom: 6px;">反響ごとの設定</h4>
-        <div class="table-container" style="max-height: 200px; overflow-y: auto;">
+        <div class="table-container" style="max-height: 260px; overflow-y: auto;">
           <table>
             <thead>
               <tr>
-                <th style="width:40%">反響名</th>
-                <th style="width:30%">つながらない(日)</th>
-                <th style="width:30%">重複ﾁｪｯｸ(日)</th>
+                <th>反響名</th>
+                <th>申請期限(日)</th>
+                <th>ﾊｲﾗｲﾄ閾値(日)</th>
+                <th>つながらない(日)</th>
+                <th>重複ﾁｪｯｸ(日)</th>
               </tr>
             </thead>
             <tbody id="exclusionSourceSettingsBody"></tbody>
@@ -4586,10 +4582,10 @@
       editingCustomer: null,
       masters: {},
       statusColors: {},
-      ruleDefinitions: { highlight_threshold_days: 5, rules: [] },
+      ruleDefinitions: { source_deadlines: {}, rules: [] },
       noContactRules: {},
       duplicateCheckRules: {},
-      highlightThresholdDays: 5,
+      sourceDeadlines: {},
       duplicateResults: {}
     };
 
@@ -4963,41 +4959,30 @@
         const deleteName = toHalfwidthKana(c.customer_name || "");
         const inquiryDateLabel = formatInquiryDateShort(c.inquiry_date);
 
-        // 除外申請期限ハイライト計算（ルール定義ベース）
+        // 除外申請期限ハイライト計算（反響ごとの期限ベース）
         let rowBgStyle = "";
         if (customerState.category === "sell" && c.inquiry_date) {
-          const source = c.inquiry_source || "";
-          const applicableRules = getApplicableRules(source);
-          const exData = c.exclusion_data || {};
-          const globalThreshold = customerState.highlightThresholdDays || 5;
-          let mostUrgent = null; // { daysLeft, threshold }
-          for (const rule of applicableRules) {
-            // ルール値が設定済みならスキップ
-            if (exData[rule.id]) continue;
-            // 反響ごとの設定を取得
-            const srcConf = (rule.applicable_sources && !Array.isArray(rule.applicable_sources))
-              ? (rule.applicable_sources[source] || {})
-              : {};
-            const deadlineDays = srcConf.deadline_days || rule.deadline_days || null;
-            if (!deadlineDays) continue;
-            const srcThreshold = srcConf.highlight_threshold_days || deadlineDays || globalThreshold;
-            const inquiryDate = new Date(c.inquiry_date);
-            const deadline = new Date(inquiryDate);
-            deadline.setDate(deadline.getDate() + deadlineDays);
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const daysLeft = Math.ceil((deadline - today) / (1000 * 60 * 60 * 24));
-            if (daysLeft > 0 && daysLeft <= srcThreshold) {
-              if (!mostUrgent || daysLeft < mostUrgent.daysLeft) {
-                mostUrgent = { daysLeft, threshold: srcThreshold };
+          // 課金除外が「除外〇」なら色付けしない
+          const be = (c.billing_exclusion || "").trim();
+          if (be !== "除外〇") {
+            const source = c.inquiry_source || "";
+            const srcConf = (customerState.sourceDeadlines || {})[source] || {};
+            const deadlineDays = srcConf.deadline_days;
+            if (deadlineDays && deadlineDays > 0) {
+              const threshold = srcConf.highlight_threshold_days || deadlineDays;
+              const inquiryDate = new Date(c.inquiry_date);
+              const deadline = new Date(inquiryDate);
+              deadline.setDate(deadline.getDate() + deadlineDays);
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              const daysLeft = Math.ceil((deadline - today) / (1000 * 60 * 60 * 24));
+              if (daysLeft > 0 && daysLeft <= threshold) {
+                if (daysLeft <= Math.floor(threshold / 2)) {
+                  rowBgStyle = "background-color:#FDE68A;";
+                } else {
+                  rowBgStyle = "background-color:#FEF3C7;";
+                }
               }
-            }
-          }
-          if (mostUrgent) {
-            if (mostUrgent.daysLeft <= Math.floor(mostUrgent.threshold / 2)) {
-              rowBgStyle = "background-color:#FDE68A;";
-            } else {
-              rowBgStyle = "background-color:#FEF3C7;";
             }
           }
         }
@@ -5065,10 +5050,10 @@
     async function loadExclusionSettings() {
       try {
         const data = await apiFetch("/api/exclusion-settings");
-        customerState.ruleDefinitions = data.rule_definitions || { highlight_threshold_days: 5, rules: [] };
+        customerState.ruleDefinitions = data.rule_definitions || { source_deadlines: {}, rules: [] };
         customerState.noContactRules = data.no_contact_rules || {};
         customerState.duplicateCheckRules = data.duplicate_check_rules || {};
-        customerState.highlightThresholdDays = customerState.ruleDefinitions.highlight_threshold_days || 5;
+        customerState.sourceDeadlines = customerState.ruleDefinitions.source_deadlines || {};
       } catch (err) {
         console.error("除外設定取得エラー:", err);
       }
@@ -5076,32 +5061,32 @@
 
     function getApplicableRules(inquirySource) {
       const rules = customerState.ruleDefinitions.rules || [];
-      return rules.filter(r => {
-        const src = r.applicable_sources || {};
-        // 旧形式（配列）互換
-        if (Array.isArray(src)) return src.includes(inquirySource);
-        return inquirySource in src;
-      });
+      return rules.filter(r => (r.applicable_sources || []).includes(inquirySource));
     }
 
     function openExclusionSettingsModal() {
       const sources = (customerState.masters.inquiry_source_sell || []);
-      el("exclusionThresholdDays").value = customerState.highlightThresholdDays || 5;
 
       // ルールカード描画
       renderExclusionRuleCards();
 
-      // 反響ごとの設定（つながらない、重複チェック）
+      // 反響ごとの設定（申請期限、ハイライト閾値、つながらない、重複チェック）
       const noContact = customerState.noContactRules || {};
       const dupRules = customerState.duplicateCheckRules || {};
+      const srcDeadlines = customerState.sourceDeadlines || {};
       const stBody = el("exclusionSourceSettingsBody");
       stBody.innerHTML = sources.map(src => {
+        const sd = srcDeadlines[src] || {};
+        const deadlineDays = sd.deadline_days || "";
+        const thresholdDays = sd.highlight_threshold_days || "";
         const noContactDays = (noContact[src] && noContact[src].no_contact_days) || "";
         const dupCheckDays = (dupRules[src] && dupRules[src].duplicate_check_days) || "";
         return `<tr data-source="${src}">
           <td style="font-size:12px;">${src}</td>
-          <td><input type="number" class="form-control" name="no_contact_days" value="${noContactDays}" min="0" style="width:80px;padding:4px 6px;font-size:12px;" placeholder="無し"></td>
-          <td><input type="number" class="form-control" name="duplicate_check_days" value="${dupCheckDays}" min="0" style="width:80px;padding:4px 6px;font-size:12px;" placeholder="無し"></td>
+          <td><input type="number" class="form-control" name="deadline_days" value="${deadlineDays}" min="0" style="width:70px;padding:4px 6px;font-size:12px;" placeholder="無し"></td>
+          <td><input type="number" class="form-control" name="highlight_threshold_days" value="${thresholdDays}" min="0" style="width:70px;padding:4px 6px;font-size:12px;" placeholder="=期限"></td>
+          <td><input type="number" class="form-control" name="no_contact_days" value="${noContactDays}" min="0" style="width:70px;padding:4px 6px;font-size:12px;" placeholder="無し"></td>
+          <td><input type="number" class="form-control" name="duplicate_check_days" value="${dupCheckDays}" min="0" style="width:70px;padding:4px 6px;font-size:12px;" placeholder="無し"></td>
         </tr>`;
       }).join("");
 
@@ -5115,22 +5100,12 @@
 
       container.innerHTML = rules.map((rule, idx) => {
         const optionsStr = (rule.options || []).join(", ");
-        // applicable_sources は { "スーモ": {deadline_days:6, highlight_threshold_days:6}, ... } 形式
-        const appSources = rule.applicable_sources || {};
-        // 旧形式（配列）との互換: 配列なら空設定のオブジェクトに変換
-        const sourceMap = Array.isArray(appSources)
-          ? appSources.reduce((m, s) => { m[s] = { deadline_days: rule.deadline_days || null, highlight_threshold_days: rule.highlight_threshold_days || null }; return m; }, {})
-          : appSources;
-        const sourceRows = sources.map(src => {
-          const checked = src in sourceMap ? "checked" : "";
-          const srcConf = sourceMap[src] || {};
-          const dlVal = srcConf.deadline_days || "";
-          const thVal = srcConf.highlight_threshold_days != null ? srcConf.highlight_threshold_days : "";
-          return `<div class="rule-source-row" style="display:flex;align-items:center;gap:8px;padding:3px 0;border-bottom:1px solid var(--gray-100);">
-            <label style="min-width:120px;margin:0;"><input type="checkbox" class="rule-src-check" value="${src}" ${checked}><span style="margin-left:4px;">${src}</span></label>
-            <input type="number" class="form-control rule-src-deadline" value="${dlVal}" min="0" placeholder="期限(日)" style="font-size:11px;padding:2px 6px;width:80px;" ${checked ? "" : "disabled"}>
-            <input type="number" class="form-control rule-src-threshold" value="${thVal}" min="0" placeholder="閾値(日)" style="font-size:11px;padding:2px 6px;width:80px;" ${checked ? "" : "disabled"}>
-          </div>`;
+        const applicableSources = Array.isArray(rule.applicable_sources)
+          ? rule.applicable_sources
+          : Object.keys(rule.applicable_sources || {});
+        const sourceCheckboxes = sources.map(src => {
+          const checked = applicableSources.includes(src) ? "checked" : "";
+          return `<label><input type="checkbox" value="${src}" ${checked}><span>${src}</span></label>`;
         }).join("");
 
         return `<div class="exclusion-rule-card" data-rule-idx="${idx}">
@@ -5144,23 +5119,10 @@
               <input type="text" class="form-control" name="rule_options" value="${optionsStr}" placeholder="除外〇, 除外×, 除外中" style="font-size:12px;padding:4px 8px;">
             </div>
           </div>
-          <div style="font-size:11px;color:var(--gray-500);margin:8px 0 4px;">適用する反響（反響ごとに申請期限・ﾊｲﾗｲﾄ閾値を設定）:</div>
-          <div style="display:flex;gap:8px;padding:0 0 4px 128px;font-size:10px;color:var(--gray-400);">
-            <span style="width:80px;text-align:center;">申請期限</span>
-            <span style="width:80px;text-align:center;">ﾊｲﾗｲﾄ閾値</span>
-          </div>
-          <div class="rule-sources">${sourceRows}</div>
+          <div style="font-size:11px;color:var(--gray-500);margin-bottom:4px;">適用する反響:</div>
+          <div class="rule-sources">${sourceCheckboxes}</div>
         </div>`;
       }).join("");
-
-      // チェックボックスで入力欄の有効/無効を切り替え
-      container.querySelectorAll(".rule-src-check").forEach(cb => {
-        cb.addEventListener("change", function() {
-          const row = this.closest(".rule-source-row");
-          row.querySelector(".rule-src-deadline").disabled = !this.checked;
-          row.querySelector(".rule-src-threshold").disabled = !this.checked;
-        });
-      });
     }
 
     function addExclusionRule() {
@@ -5169,7 +5131,7 @@
         id: "r_" + Date.now(),
         name: "",
         options: [],
-        applicable_sources: {}
+        applicable_sources: []
       });
       customerState.ruleDefinitions.rules = rules;
       renderExclusionRuleCards();
@@ -5192,29 +5154,14 @@
       cards.forEach((card, idx) => {
         const name = card.querySelector('input[name="rule_name"]').value.trim();
         const optionsStr = card.querySelector('input[name="rule_options"]').value;
+        const checkedSources = Array.from(card.querySelectorAll('.rule-sources input[type="checkbox"]:checked')).map(cb => cb.value);
         const options = optionsStr.split(",").map(s => s.trim()).filter(Boolean);
         const existingId = (existingRules[idx] && existingRules[idx].id) || ("r_" + Date.now() + "_" + idx);
-        // 反響ごとの設定を収集
-        const applicableSources = {};
-        card.querySelectorAll(".rule-source-row").forEach(row => {
-          const cb = row.querySelector(".rule-src-check");
-          if (cb && cb.checked) {
-            const src = cb.value;
-            const dlVal = row.querySelector(".rule-src-deadline").value;
-            const thVal = row.querySelector(".rule-src-threshold").value;
-            const dl = dlVal ? parseInt(dlVal) : null;
-            const th = thVal ? parseInt(thVal) : null;
-            applicableSources[src] = {
-              deadline_days: (dl && dl > 0) ? dl : null,
-              highlight_threshold_days: (th && th > 0) ? th : null
-            };
-          }
-        });
         rules.push({
           id: existingId,
           name: name,
           options: options,
-          applicable_sources: applicableSources
+          applicable_sources: checkedSources
         });
       });
       return rules;
@@ -5222,19 +5169,29 @@
 
     async function saveExclusionSettings(e) {
       e.preventDefault();
-      const threshold = parseInt(el("exclusionThresholdDays").value) || 5;
       const rules = collectExclusionRuleCards();
 
       // 反響ごとの設定
       const sourceRows = el("exclusionSourceSettingsBody").querySelectorAll("tr[data-source]");
       const noContact = {};
       const dupRules = {};
+      const srcDeadlines = {};
       sourceRows.forEach(row => {
         const src = row.getAttribute("data-source");
+        const dlVal = row.querySelector('input[name="deadline_days"]').value;
+        const thVal = row.querySelector('input[name="highlight_threshold_days"]').value;
         const noContactVal = row.querySelector('input[name="no_contact_days"]').value;
         const dupVal = row.querySelector('input[name="duplicate_check_days"]').value;
+        const dlDays = dlVal ? parseInt(dlVal) : null;
+        const thDays = thVal ? parseInt(thVal) : null;
         const noContactDays = noContactVal ? parseInt(noContactVal) : null;
         const dupDays = dupVal ? parseInt(dupVal) : null;
+        if ((dlDays && dlDays > 0) || (thDays && thDays > 0)) {
+          srcDeadlines[src] = {
+            deadline_days: (dlDays && dlDays > 0) ? dlDays : null,
+            highlight_threshold_days: (thDays && thDays > 0) ? thDays : null
+          };
+        }
         if (noContactDays && noContactDays > 0) {
           noContact[src] = { no_contact_days: noContactDays };
         }
@@ -5244,7 +5201,7 @@
       });
 
       const payload = {
-        rule_definitions: { highlight_threshold_days: threshold, rules: rules },
+        rule_definitions: { source_deadlines: srcDeadlines, rules: rules },
         no_contact_rules: noContact,
         duplicate_check_rules: dupRules,
       };
@@ -5254,7 +5211,7 @@
         customerState.ruleDefinitions = result.rule_definitions || payload.rule_definitions;
         customerState.noContactRules = result.no_contact_rules || payload.no_contact_rules;
         customerState.duplicateCheckRules = result.duplicate_check_rules || payload.duplicate_check_rules;
-        customerState.highlightThresholdDays = customerState.ruleDefinitions.highlight_threshold_days || 5;
+        customerState.sourceDeadlines = customerState.ruleDefinitions.source_deadlines || {};
         closeModal("modalExclusionSettings");
         renderCustomerTable();
         // 重複チェック再実行
