@@ -1320,6 +1320,9 @@
             <label class="progress-item"><input type="checkbox" name="mediation" value="済"><span>媒介</span></label>
             <label class="progress-item"><input type="checkbox" name="contract" value="済"><span>契約</span></label>
           </div>
+          <div class="progress-grid" style="margin-top: 4px;">
+            <label class="progress-item"><input type="checkbox" name="postal_status" value="済"><span>郵便</span></label>
+          </div>
           <h4 style="margin: 16px 0 12px; font-size: 14px; color: var(--gray-700);">課金除外</h4>
           <div class="form-grid">
             <div class="form-group">
@@ -5048,6 +5051,7 @@
         badges.push({ label: "査定", done: customer.pre_assessment === "済" });
         badges.push({ label: "媒介", done: customer.mediation === "済" });
         badges.push({ label: "契約", done: customer.contract === "済" });
+        badges.push({ label: "郵送", done: customer.postal_status === "済" });
       } else if (category === "buy") {
         badges.push({ label: "案内", done: customer.showing_status === "済" });
         badges.push({ label: "契約", done: customer.contract === "済" });
@@ -5620,6 +5624,7 @@
           form.elements["pre_assessment"].checked = customer.pre_assessment === "済";
           form.elements["mediation"].checked = customer.mediation === "済";
           form.elements["contract"].checked = customer.contract === "済";
+          form.elements["postal_status"].checked = customer.postal_status === "済";
           form.elements["billing_exclusion"].value = customer.billing_exclusion || "";
           // 動的除外ルールドロップダウン
           renderDynamicExclusionRules(customer.inquiry_source || "", customer.exclusion_data || {});
@@ -5732,6 +5737,7 @@
         payload.pre_assessment = form.elements["pre_assessment"].checked ? "済" : "未";
         payload.mediation = form.elements["mediation"].checked ? "済" : "未";
         payload.contract = form.elements["contract"].checked ? "済" : "未";
+        payload.postal_status = form.elements["postal_status"].checked ? "済" : "未";
         payload.billing_exclusion = formData.get("billing_exclusion") || "";
         // 動的除外ルールデータ収集
         const existingExclData = (customerState.editingCustomer && customerState.editingCustomer.exclusion_data) || {};

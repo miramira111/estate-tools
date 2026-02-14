@@ -683,6 +683,7 @@ def db_row_to_customer(row):
         "visit_status": row["visit_status"] or "",
         "mediation": row["mediation_status"] or "",
         "contract": row["contract_status"] or "",
+        "postal_status": row.get("postal_status") or "",
         "billing_exclusion": row.get("billing_exclusion") or "",
         "exclusion_data": row.get("exclusion_data") or {},
         "expected_yield": row["expected_yield"] or "",
@@ -735,7 +736,7 @@ def save_customer(category, year, customer):
                     customer_name, phone, current_address, email,
                     first_call, call_status, mail_status, sms_status,
                     showing_status, pre_assessment, visit_status,
-                    mediation_status, contract_status, billing_exclusion, exclusion_data,
+                    mediation_status, contract_status, postal_status, billing_exclusion, exclusion_data,
                     expected_yield, expected_rent, self_funds, desired_loan, preferred_area,
                     memo, created_at, updated_at
                 ) VALUES (
@@ -745,7 +746,7 @@ def save_customer(category, year, customer):
                     %(customer_name)s, %(phone)s, %(current_address)s, %(email)s,
                     %(first_call)s, %(call_status)s, %(mail_status)s, %(sms_status)s,
                     %(showing_status)s, %(pre_assessment)s, %(visit_status)s,
-                    %(mediation_status)s, %(contract_status)s, %(billing_exclusion)s, %(exclusion_data)s,
+                    %(mediation_status)s, %(contract_status)s, %(postal_status)s, %(billing_exclusion)s, %(exclusion_data)s,
                     %(expected_yield)s, %(expected_rent)s, %(self_funds)s, %(desired_loan)s, %(preferred_area)s,
                     %(memo)s, %(created_at)s, %(updated_at)s
                 )
@@ -775,6 +776,7 @@ def save_customer(category, year, customer):
                     visit_status = EXCLUDED.visit_status,
                     mediation_status = EXCLUDED.mediation_status,
                     contract_status = EXCLUDED.contract_status,
+                    postal_status = EXCLUDED.postal_status,
                     billing_exclusion = EXCLUDED.billing_exclusion,
                     exclusion_data = EXCLUDED.exclusion_data,
                     expected_yield = EXCLUDED.expected_yield,
@@ -812,6 +814,7 @@ def save_customer(category, year, customer):
                     "visit_status": customer.get("visit_status") or None,
                     "mediation_status": customer.get("mediation") or customer.get("mediation_status") or None,
                     "contract_status": customer.get("contract") or customer.get("contract_status") or None,
+                    "postal_status": customer.get("postal_status") or None,
                     "billing_exclusion": customer.get("billing_exclusion") or None,
                     "exclusion_data": json.dumps(customer.get("exclusion_data") or {}, ensure_ascii=False),
                     "expected_yield": customer.get("yield_rate") or customer.get("expected_yield") or None,
