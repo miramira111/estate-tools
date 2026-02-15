@@ -2450,6 +2450,23 @@ def api_export_customers(category, year):
 
 
 # ------------------------------------------------------------
+# PWA ルーティング
+# ------------------------------------------------------------
+@app.route("/sw.js")
+def serve_sw():
+    response = send_from_directory(app.static_folder, "sw.js")
+    response.headers["Service-Worker-Allowed"] = "/"
+    response.headers["Content-Type"] = "application/javascript"
+    return response
+
+
+@app.route("/manifest.json")
+def serve_manifest():
+    return send_from_directory(app.static_folder, "manifest.json",
+                               mimetype="application/manifest+json")
+
+
+# ------------------------------------------------------------
 # ルーティング（静的ファイル）
 # ------------------------------------------------------------
 @app.route("/", defaults={"path": ""})

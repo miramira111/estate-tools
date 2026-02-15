@@ -2,7 +2,13 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#1a56db">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="媒介管理">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/static/icon-192.png">
   <title>媒介契約管理システム - センチュリー21ミライズ不動産</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -445,6 +451,70 @@
       .header { position: sticky; top: 0; }
     }
 
+    /* ===== MOBILE (768px以下) ===== */
+    @media (max-width: 768px) {
+      .main-area { padding-bottom: 64px; margin-left: 0; }
+      .sidebar { display: none !important; }
+      .header { padding: 0 12px; height: 44px; }
+      .content { padding: 12px; }
+      .page-title { font-size: 16px; margin-bottom: 10px; }
+
+      /* Bottom Nav */
+      .mobile-bottom-nav { display: flex; position: fixed; bottom: 0; left: 0; right: 0; height: 56px; background: #fff; border-top: 1px solid var(--gray-200); z-index: 1100; justify-content: space-around; align-items: center; box-shadow: 0 -2px 8px rgba(0,0,0,0.08); }
+      .mobile-nav-item { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 0; font-size: 10px; color: var(--gray-500); cursor: pointer; flex: 1; border: none; background: none; -webkit-tap-highlight-color: transparent; }
+      .mobile-nav-item.active { color: var(--primary-color); }
+      .mobile-nav-item .nav-icon { font-size: 20px; }
+      .mobile-nav-more-menu { position: fixed; bottom: 56px; left: 0; right: 0; background: #fff; border-top: 1px solid var(--gray-200); box-shadow: 0 -4px 16px rgba(0,0,0,0.12); z-index: 1099; display: grid; grid-template-columns: repeat(4, 1fr); padding: 12px 8px; gap: 8px; }
+      .mobile-nav-more-menu.hidden { display: none !important; }
+      .mobile-nav-more-menu .mobile-nav-item { font-size: 10px; padding: 8px 0; }
+
+      /* Filter */
+      .filter-bar { flex-direction: column; align-items: stretch; }
+      .filter-left, .filter-right { flex-wrap: wrap; }
+      .search-input { min-width: 100% !important; }
+
+      /* Stats row */
+      .stats-row { flex-direction: column; }
+      .stats-column { flex: 1 1 100%; min-width: 100%; }
+      .chart-card { min-width: 100%; }
+      .chart-container { height: 150px; }
+      .staff-monthly-section { grid-template-columns: repeat(2, 1fr); }
+      .goal-progress-list { grid-template-columns: 1fr; }
+
+      /* Table hidden on mobile, cards shown */
+      .table-container { display: none !important; }
+
+      /* Mobile Cards */
+      .mobile-card-list { display: flex; flex-direction: column; gap: 8px; }
+      .mobile-card { background: #fff; border: 1px solid var(--gray-200); border-radius: 10px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+      .mobile-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 8px; }
+      .mobile-card-id { font-weight: 700; font-size: 13px; color: var(--gray-900); }
+      .mobile-card-body { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 12px; }
+      .mobile-card-row { display: flex; flex-direction: column; }
+      .mobile-card-row.full { grid-column: 1 / -1; }
+      .mobile-card-label { font-size: 10px; color: var(--gray-500); font-weight: 600; }
+      .mobile-card-value { color: var(--gray-900); word-break: break-word; }
+      .mobile-card-actions { display: flex; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--gray-100); flex-wrap: wrap; }
+      .mobile-card-actions .btn { padding: 8px 14px; font-size: 13px; flex: 1; justify-content: center; min-height: 36px; }
+
+      /* Modal full-screen */
+      .modal-backdrop { align-items: flex-end; }
+      .modal { max-width: 100% !important; width: 100%; max-height: 92vh; border-radius: 16px 16px 0 0; animation: slideUpModal 0.2s ease-out; }
+      @keyframes slideUpModal { from { transform: translateY(100%); } to { transform: translateY(0); } }
+      .modal-close { width: 36px; height: 36px; font-size: 24px; }
+      .form-grid { grid-template-columns: 1fr; }
+      .form-group input, .form-group select, .form-group textarea { font-size: 16px; min-height: 44px; }
+      .btn { min-height: 40px; }
+
+      .desktop-only { display: none !important; }
+    }
+    @media (min-width: 769px) {
+      .mobile-only { display: none !important; }
+      .mobile-bottom-nav { display: none !important; }
+      .mobile-card-list { display: none !important; }
+      .mobile-nav-more-menu { display: none !important; }
+    }
+
     /* 顧客管理 */
     .customer-tabs {
       display: flex;
@@ -766,6 +836,26 @@
       </ul>
     </aside>
 
+    <!-- Mobile Bottom Navigation -->
+    <nav class="mobile-bottom-nav" id="mobileBottomNav">
+      <button class="mobile-nav-item active" data-mob-page="dashboard"><span class="nav-icon">🏠</span><span>ホーム</span></button>
+      <button class="mobile-nav-item" data-mob-page="contracts"><span class="nav-icon">📋</span><span>契約</span></button>
+      <button class="mobile-nav-item" data-mob-page="customers"><span class="nav-icon">👥</span><span>顧客</span></button>
+      <button class="mobile-nav-item" data-mob-page="deadline"><span class="nav-icon">📅</span><span>期限</span></button>
+      <button class="mobile-nav-item" data-mob-more><span class="nav-icon">≡</span><span>その他</span></button>
+    </nav>
+    <!-- Mobile More Menu -->
+    <div class="mobile-nav-more-menu hidden" id="mobileMoreMenu">
+      <button class="mobile-nav-item" data-mob-page="register"><span class="nav-icon">📝</span><span>登録簿</span></button>
+      <button class="mobile-nav-item" data-mob-page="closed-contracted"><span class="nav-icon">✅</span><span>成約</span></button>
+      <button class="mobile-nav-item" data-mob-page="closed-purchased"><span class="nav-icon">🏷️</span><span>買取</span></button>
+      <button class="mobile-nav-item" data-mob-page="closed-canceled"><span class="nav-icon">⛔</span><span>中止</span></button>
+      <button class="mobile-nav-item" data-mob-page="closed-other"><span class="nav-icon">🗂️</span><span>他決</span></button>
+      <button class="mobile-nav-item" data-mob-page="by-staff"><span class="nav-icon">👤</span><span>担当別</span></button>
+      <button class="mobile-nav-item" data-mob-page="settings"><span class="nav-icon">⚙️</span><span>設定</span></button>
+      <button class="mobile-nav-item" data-mob-page="admin"><span class="nav-icon">🗑️</span><span>削除</span></button>
+    </div>
+
     <div class="main-area">
       <header class="header">
         <div class="header-left">不動産売買 媒介管理</div>
@@ -894,6 +984,7 @@
               <tbody id="contractsBody"></tbody>
             </table>
           </div>
+          <div class="mobile-card-list mobile-only" id="contractsCardList"></div>
         </section>
 
         <section id="page-deadline" class="page-section">
@@ -919,6 +1010,7 @@
                 <tbody id="deadlineBody"></tbody>
               </table>
             </div>
+            <div class="mobile-card-list mobile-only" id="deadlineCardList"></div>
           </div>
         </section>
 
@@ -946,6 +1038,7 @@
                 <tbody id="registerBody"></tbody>
               </table>
             </div>
+            <div class="mobile-card-list mobile-only" id="registerCardList"></div>
           </div>
         </section>
 
@@ -974,6 +1067,7 @@
                 <tbody id="closedContractedBody"></tbody>
               </table>
             </div>
+            <div class="mobile-card-list mobile-only" id="closedContractedCardList"></div>
           </div>
         </section>
 
@@ -999,6 +1093,7 @@
                 <tbody id="closedPurchasedBody"></tbody>
               </table>
             </div>
+            <div class="mobile-card-list mobile-only" id="closedPurchasedCardList"></div>
           </div>
         </section>
 
@@ -1024,6 +1119,7 @@
                 <tbody id="closedCanceledBody"></tbody>
               </table>
             </div>
+            <div class="mobile-card-list mobile-only" id="closedCanceledCardList"></div>
           </div>
         </section>
 
@@ -1066,6 +1162,7 @@
                 <tbody id="byStaffContractsBody"></tbody>
               </table>
             </div>
+            <div class="mobile-card-list mobile-only" id="byStaffCardList"></div>
           </div>
         </section>
 
@@ -1159,6 +1256,7 @@
                 <tbody id="closedOtherBody"></tbody>
               </table>
             </div>
+            <div class="mobile-card-list mobile-only" id="closedOtherCardList"></div>
           </div>
         </section>
 
@@ -1184,6 +1282,7 @@
                 <tbody id="adminBody"></tbody>
               </table>
             </div>
+            <div class="mobile-card-list mobile-only" id="adminCardList"></div>
           </div>
         </section>
 
@@ -1250,6 +1349,7 @@
             <!-- ページネーション -->
             <div class="pagination" id="customerPagination" style="margin-top: 16px; display: flex; justify-content: center; gap: 8px;"></div>
           </div>
+          <div class="mobile-card-list mobile-only" id="customersCardList"></div>
         </section>
       </main>
     </div>
@@ -3709,12 +3809,43 @@
       const soon = state.contracts.map((c) => ({ ...c, remaining: daysUntil(c.expireDate) }))
         .filter((c) => c.remaining !== null && c.remaining <= 20)
         .sort((a, b) => a.remaining - b.remaining);
-      
+      const cardList = el("deadlineCardList");
+
       if (soon.length === 0) {
         body.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--gray-500);">20日以内に期限が来る案件はありません</td></tr>`;
+        if (cardList) cardList.innerHTML = '<div style="text-align:center;padding:20px;color:var(--gray-500);">20日以内に期限が来る案件はありません</div>';
         return;
       }
-      
+
+      // Mobile cards
+      if (isMobileView() && cardList) {
+        cardList.innerHTML = soon.map(c => {
+          let borderColor = "var(--gray-200)";
+          let badge = "";
+          if (c.remaining < 0) { borderColor = "#dc2626"; badge = `<span class="badge" style="background:#dc2626;color:#fff;">期限切れ</span>`; }
+          else if (c.remaining <= 7) { borderColor = "#dc2626"; badge = `<span class="badge" style="background:#f59e0b;color:#fff;">あと${c.remaining}日</span>`; }
+          else if (c.remaining <= 14) { borderColor = "#f59e0b"; badge = `<span class="badge" style="background:#fcd34d;color:#92400e;">あと${c.remaining}日</span>`; }
+          else { badge = `<span style="color:var(--gray-500);">${c.remaining}日</span>`; }
+          return buildMobileCard({
+            id: c.id,
+            headerLeft: `${c.id} ${renderStatusBadge(c.status)}`,
+            headerRight: badge,
+            rows: [
+              { label: "担当", value: c.staff || "-" },
+              { label: "期限", value: formatDateDisplay(c.expireDate) },
+              { label: "住所", value: c.address || "-", full: true },
+            ],
+            actions: [
+              { label: "更新", cls: "btn-outline", action: "renew", dataId: c.id },
+              { label: "編集", cls: "btn-outline", action: "edit", dataId: c.id }
+            ]
+          }).replace('class="mobile-card"', `class="mobile-card" style="border-left:3px solid ${borderColor}"`);
+        }).join("");
+        cardList.querySelectorAll("button[data-action]").forEach(btn =>
+          btn.addEventListener("click", () => handleRowAction(btn.dataset.action, btn.dataset.id)));
+      }
+
+      // Desktop table
       body.innerHTML = soon.map((c) => {
         let rowClass = "";
         let badge = "";
@@ -3748,6 +3879,29 @@
 
     function renderRegisterTable() {
       const body = el("registerBody"); if (!body) return;
+      const cardList = el("registerCardList");
+
+      // Mobile cards
+      if (isMobileView() && cardList) {
+        cardList.innerHTML = state.contracts.length === 0
+          ? '<div style="text-align:center;padding:20px;color:var(--gray-500);">データがありません</div>'
+          : state.contracts.map(c => buildMobileCard({
+            id: c.id,
+            headerLeft: c.id,
+            headerRight: `<span class="badge type-${c.type || ""}">${c.type || "-"}</span>`,
+            rows: [
+              { label: "担当", value: c.staff || "-" },
+              { label: "契約日", value: formatDateDisplay(c.signedDate) },
+              { label: "期限", value: formatDateDisplay(c.expireDate) },
+              { label: "住所", value: c.address || "-", full: true },
+            ],
+            actions: [{ label: "編集", cls: "btn-outline", action: "edit", dataId: c.id }]
+          })).join("");
+        cardList.querySelectorAll("button[data-action]").forEach(btn =>
+          btn.addEventListener("click", () => handleRowAction(btn.dataset.action, btn.dataset.id)));
+      }
+
+      // Desktop table
       body.innerHTML = state.contracts.map((c) => `<tr>
             <td>${c.id}</td>
             <td>${c.staff}</td>
@@ -3784,31 +3938,62 @@
           });
       };
 
+      const getInfoText = (c, kind) => {
+        if (kind === "contracted") {
+          const info = c.closeInfo || {};
+          const d = formatDateDisplay(info.成約日);
+          const p = info.成約価格 !== undefined && info.成約価格 !== "" ? formatPrice(info.成約価格) : "-";
+          return `成約日: ${d} / 価格: ${p}`;
+        } else if (kind === "purchased") {
+          const info = c.purchaseInfo || {};
+          const d = formatDateDisplay(info.買取日);
+          const p = info.買取価格 !== undefined && info.買取価格 !== "" ? formatPrice(info.買取価格) : "-";
+          return `買取日: ${d} / 価格: ${p}`;
+        } else if (kind === "other") {
+          const info = c.otherInfo || {};
+          const d = formatDateDisplay(info.他決日 || c.statusDate);
+          return `他決日: ${d} / 理由: ${info.他決理由 || "-"}`;
+        } else {
+          const info = c.cancelInfo || {};
+          const d = formatDateDisplay(info.中止日);
+          return `中止日: ${d} / 理由: ${info.中止理由 || "-"}`;
+        }
+      };
+
+      const getInfoRows = (c, kind) => {
+        if (kind === "contracted") {
+          const info = c.closeInfo || {};
+          return [
+            { label: "成約日", value: formatDateDisplay(info.成約日) },
+            { label: "成約価格", value: info.成約価格 !== undefined && info.成約価格 !== "" ? formatPrice(info.成約価格) : "-" }
+          ];
+        } else if (kind === "purchased") {
+          const info = c.purchaseInfo || {};
+          return [
+            { label: "買取日", value: formatDateDisplay(info.買取日) },
+            { label: "買取価格", value: info.買取価格 !== undefined && info.買取価格 !== "" ? formatPrice(info.買取価格) : "-" }
+          ];
+        } else if (kind === "other") {
+          const info = c.otherInfo || {};
+          return [
+            { label: "他決日", value: formatDateDisplay(info.他決日 || c.statusDate) },
+            { label: "理由", value: info.他決理由 || "-" }
+          ];
+        } else {
+          const info = c.cancelInfo || {};
+          return [
+            { label: "中止日", value: formatDateDisplay(info.中止日) },
+            { label: "理由", value: info.中止理由 || "-" }
+          ];
+        }
+      };
+
       const renderRows = (list, kind) => {
         if (!list.length) {
           return `<tr><td colspan="6" style="text-align:center;padding:16px;color:var(--gray-500);">該当する案件はありません</td></tr>`;
         }
         return list.map((c) => {
-          let infoText = "-";
-          if (kind === "contracted") {
-            const info = c.closeInfo || {};
-            const d = formatDateDisplay(info.成約日);
-            const p = info.成約価格 !== undefined && info.成約価格 !== "" ? formatPrice(info.成約価格) : "-";
-            infoText = `成約日: ${d} / 価格: ${p}`;
-          } else if (kind === "purchased") {
-            const info = c.purchaseInfo || {};
-            const d = formatDateDisplay(info.買取日);
-            const p = info.買取価格 !== undefined && info.買取価格 !== "" ? formatPrice(info.買取価格) : "-";
-            infoText = `買取日: ${d} / 価格: ${p}`;
-          } else if (kind === "other") {
-            const info = c.otherInfo || {};
-            const d = formatDateDisplay(info.他決日 || c.statusDate);
-            infoText = `他決日: ${d} / 理由: ${info.他決理由 || "-"}`;
-          } else {
-            const info = c.cancelInfo || {};
-            const d = formatDateDisplay(info.中止日);
-            infoText = `中止日: ${d} / 理由: ${info.中止理由 || "-"}`;
-          }
+          const infoText = getInfoText(c, kind);
           const actions = (kind === "purchased" && !c.id)
             ? "-"
             : `<div class="actions">
@@ -3826,10 +4011,51 @@
         }).join("");
       };
 
-      contractedBody.innerHTML = renderRows(filterList("成約", queryContracted), "contracted");
-      purchasedBody.innerHTML = renderRows(filterList("買取", queryPurchased), "purchased");
-      canceledBody.innerHTML = renderRows(filterList("中止", queryCanceled), "canceled");
-      otherBody.innerHTML = renderRows(filterList("他決", queryOther), "other");
+      const renderCards = (list, kind, cardListEl) => {
+        if (!cardListEl) return;
+        if (!list.length) {
+          cardListEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--gray-500);">該当する案件はありません</div>';
+          return;
+        }
+        cardListEl.innerHTML = list.map(c => {
+          const hasActions = !(kind === "purchased" && !c.id);
+          return buildMobileCard({
+            id: c.id,
+            headerLeft: `${c.id} ${renderStatusBadge(c.status)}`,
+            headerRight: `<span class="badge type-${c.type || ""}">${c.type || "-"}</span>`,
+            rows: [
+              { label: "担当", value: c.staff || "-" },
+              { label: "住所", value: c.address || "-", full: true },
+              ...getInfoRows(c, kind)
+            ],
+            actions: hasActions ? [
+              { label: "編集", cls: "btn-outline", action: "edit", dataId: c.id },
+              { label: "公開中に戻す", cls: "btn-outline", action: "reactivate", dataId: c.id }
+            ] : []
+          });
+        }).join("");
+        cardListEl.querySelectorAll("button[data-action]").forEach(btn =>
+          btn.addEventListener("click", () => handleClosedAction(btn.dataset.action, btn.dataset.id)));
+      };
+
+      const contracted = filterList("成約", queryContracted);
+      const purchased = filterList("買取", queryPurchased);
+      const canceled = filterList("中止", queryCanceled);
+      const other = filterList("他決", queryOther);
+
+      // Mobile cards
+      if (isMobileView()) {
+        renderCards(contracted, "contracted", el("closedContractedCardList"));
+        renderCards(purchased, "purchased", el("closedPurchasedCardList"));
+        renderCards(canceled, "canceled", el("closedCanceledCardList"));
+        renderCards(other, "other", el("closedOtherCardList"));
+      }
+
+      // Desktop tables
+      contractedBody.innerHTML = renderRows(contracted, "contracted");
+      purchasedBody.innerHTML = renderRows(purchased, "purchased");
+      canceledBody.innerHTML = renderRows(canceled, "canceled");
+      otherBody.innerHTML = renderRows(other, "other");
 
       document.querySelectorAll("#closedContractedBody button[data-action], #closedPurchasedBody button[data-action], #closedCanceledBody button[data-action], #closedOtherBody button[data-action]").forEach((btn) => {
         btn.addEventListener("click", () => handleClosedAction(btn.dataset.action, btn.dataset.id));
@@ -3892,11 +4118,72 @@
               <td class="address">${c.address || "-"}</td>
             </tr>`).join("");
       }
+
+      // Mobile cards
+      const cardList = el("byStaffCardList");
+      if (isMobileView() && cardList) {
+        let html = '';
+        // Staff summary cards
+        html += '<div style="font-weight:600;font-size:13px;margin-bottom:6px;">担当別集計</div>';
+        html += state.summary.map(s => `<div class="mobile-card" style="margin-bottom:6px;">
+          <div class="mobile-card-header"><span class="mobile-card-id">${s["担当"]}</span><span style="font-size:13px;font-weight:600;">計 ${s.total || 0}件</span></div>
+          <div class="mobile-card-body">
+            <div class="mobile-card-row"><span class="mobile-card-label">専属</span><span class="mobile-card-value">${s["専属"] || 0}</span></div>
+            <div class="mobile-card-row"><span class="mobile-card-label">専任</span><span class="mobile-card-value">${s["専任"] || 0}</span></div>
+            <div class="mobile-card-row"><span class="mobile-card-label">一般</span><span class="mobile-card-value">${s["一般"] || 0}</span></div>
+          </div>
+        </div>`).join("");
+        // Contract list cards
+        html += '<div style="font-weight:600;font-size:13px;margin:12px 0 6px;">契約一覧</div>';
+        html += state.contracts.map(c => buildMobileCard({
+          id: c.id,
+          headerLeft: `${c.staff} - ${c.id}`,
+          headerRight: renderStatusBadge(c.status),
+          rows: [
+            { label: "種別", value: c.type || "-" },
+            { label: "期限", value: formatDateDisplay(c.expireDate) },
+            { label: "住所", value: c.address || "-", full: true },
+          ],
+          actions: []
+        })).join("");
+        cardList.innerHTML = html;
+      }
     }
 
     function renderAdminTable() {
       const body = el("adminBody"); if (!body) return;
       const all = [...state.contracts, ...state.closed];
+      const cardList = el("adminCardList");
+
+      // Mobile cards
+      if (isMobileView() && cardList) {
+        cardList.innerHTML = all.length === 0
+          ? '<div style="text-align:center;padding:20px;color:var(--gray-500);">データがありません</div>'
+          : all.map(c => buildMobileCard({
+            id: c.id,
+            headerLeft: `${c.id}`,
+            headerRight: renderStatusBadge(c.status),
+            rows: [
+              { label: "担当", value: c.staff || "-" },
+              { label: "住所", value: c.address || "-", full: true },
+            ],
+            actions: [{ label: "削除", cls: "btn-danger", action: "admin-delete", dataId: c.id }]
+          })).join("");
+        cardList.querySelectorAll("button[data-action='admin-delete']").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            if (confirm("このレコードを削除しますか？")) {
+              await apiFetch(`/api/contracts/${btn.dataset.id}`, { method: "DELETE" });
+              await loadContracts();
+              renderTable();
+              renderClosedTable();
+              renderAdminTable();
+              renderStats();
+            }
+          });
+        });
+      }
+
+      // Desktop table
       body.innerHTML = all.map((c) => `<tr>
             <td>${c.id}</td>
             <td>${c.status}</td>
@@ -3980,10 +4267,63 @@
       return s1 - s2;
     }
 
+    // ===== Mobile Card Helper =====
+    function buildMobileCard(opts) {
+      // opts: { id, headerLeft, headerRight, rows: [{label, value, full?}], actions: [{label, cls, action, dataId}] }
+      const rowsHtml = (opts.rows || []).map(r =>
+        `<div class="mobile-card-row${r.full ? ' full' : ''}"><span class="mobile-card-label">${r.label}</span><span class="mobile-card-value">${r.value}</span></div>`
+      ).join("");
+      const actionsHtml = (opts.actions || []).map(a =>
+        `<button class="btn ${a.cls || 'btn-outline'}" data-action="${a.action}" data-id="${a.dataId}">${a.label}</button>`
+      ).join("");
+      return `<div class="mobile-card" data-card-id="${opts.id || ''}">
+        <div class="mobile-card-header"><span class="mobile-card-id">${opts.headerLeft || ''}</span>${opts.headerRight || ''}</div>
+        <div class="mobile-card-body">${rowsHtml}</div>
+        ${actionsHtml ? `<div class="mobile-card-actions">${actionsHtml}</div>` : ''}
+      </div>`;
+    }
+
     function renderTable() {
       const body = el("contractsBody");
       body.innerHTML = "";
-      getFilteredContracts().forEach((c) => {
+      const filtered = getFilteredContracts();
+      const cardList = el("contractsCardList");
+      const mobile = isMobileView();
+
+      if (mobile && cardList) {
+        cardList.innerHTML = filtered.length === 0
+          ? '<div style="text-align:center;padding:20px;color:var(--gray-500);">該当する契約はありません</div>'
+          : filtered.map(c => {
+            const days = daysUntil(c.expireDate);
+            let borderColor = "var(--gray-200)";
+            if (c.status === "成約") borderColor = "var(--success-color)";
+            else if (c.status === "中止") borderColor = "var(--danger-color)";
+            else if (days !== null && days <= 7) borderColor = "var(--danger-color)";
+            else if (days !== null && days <= 14) borderColor = "var(--warning-color)";
+            return buildMobileCard({
+              id: c.id,
+              headerLeft: `${c.id || "-"} ${renderStatusBadge(c.status)}`,
+              headerRight: `<span class="badge type-${c.type || ""}">${c.type || "-"}</span>`,
+              rows: [
+                { label: "担当", value: c.staff || "-" },
+                { label: "媒介", value: c.media ? toHalfKana(c.media) : "-" },
+                { label: "住所", value: c.address || "-", full: true },
+                { label: "売主", value: c.owner || "-" },
+                { label: "価格", value: formatPrice(c.price) },
+                { label: "契約日", value: formatDateDisplay(c.signedDate) },
+                { label: "期限", value: formatDateDisplay(c.expireDate) + (days !== null ? ` (${days}日)` : "") },
+              ],
+              actions: [
+                { label: "編集", cls: "btn-outline", action: "edit", dataId: c.id }
+              ]
+            }).replace('class="mobile-card"', `class="mobile-card" style="border-left:3px solid ${borderColor}"`);
+          }).join("");
+        if (cardList) cardList.querySelectorAll("button[data-action]").forEach(btn =>
+          btn.addEventListener("click", () => handleRowAction(btn.dataset.action, btn.dataset.id)));
+      }
+
+      // Desktop table (always rendered for when switching back)
+      filtered.forEach((c) => {
         const statusBadge = renderStatusBadge(c.status);
         const typeBadge = `<span class="badge type-${c.type || ""}">${c.type || "-"}</span>`;
         const mediaDisplay = c.media ? toHalfKana(c.media) : "-";
@@ -3998,7 +4338,7 @@
         else if (c.status === "中止") rowClass = "row-cancel";
         else if (days !== null && days <= 7) rowClass = "row-danger";
         else if (days !== null && days <= 14) rowClass = "row-soft-warning";
-        
+
         // 鍵の表示
         let keyDisplay = c.keyLocation || "-";
         if (isKeyBox(c.keyLocation)) {
@@ -5319,6 +5659,7 @@
 
       const thead = el("customersTableHead");
       const tbody = el("customersBody");
+      const cardList = el("customersCardList");
 
       // カテゴリ別ヘッダー
       const categoryHeaders = {
@@ -5365,11 +5706,6 @@
 
       thead.innerHTML = categoryHeaders[customerState.category];
 
-      if (pageCustomers.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;color:var(--gray-500);padding:32px;">顧客データがありません</td></tr>`;
-        return;
-      }
-
       const formatInquiryDateShort = (dateStr) => {
         if (!dateStr) return "-";
         const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
@@ -5377,6 +5713,46 @@
         return `${match[1].slice(2)}-${match[2]}-${match[3]}`;
       };
 
+      if (pageCustomers.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;color:var(--gray-500);padding:32px;">顧客データがありません</td></tr>`;
+        if (cardList) cardList.innerHTML = '<div style="text-align:center;padding:20px;color:var(--gray-500);">顧客データがありません</div>';
+        return;
+      }
+
+      // Mobile cards
+      if (isMobileView() && cardList) {
+        cardList.innerHTML = pageCustomers.map(c => {
+          const statusStyle = getCustomerStatusStyle(c.status);
+          const statusLabel = c.status ? toHalfwidthKana(c.status) : "-";
+          const propertyCol = customerState.category === "sell" ? (c.assessment_address || "-")
+            : customerState.category === "buy" ? (c.target_property || "-")
+            : (c.desired_property || "-");
+          const progressHtml = renderProgressBadges(c, customerState.category);
+          const propertyLabel = customerState.category === "sell" ? "査定住所" : customerState.category === "buy" ? "反響物件" : "希望物件";
+          const deleteName = toHalfwidthKana(c.customer_name || "").replace(/'/g, "\\'");
+
+          return `<div class="mobile-card" onclick="onCustomerRowClick(event, '${c.id}')" style="cursor:pointer;">
+            <div class="mobile-card-header">
+              <span class="mobile-card-id">${c.case_number || "-"} <span class="customer-status-badge" style="background:${statusStyle.bg};color:${statusStyle.color};font-size:10px;">${statusLabel}</span></span>
+              <span style="font-size:11px;color:var(--gray-500);">${toHalfwidthKana(c.staff_id || "-")}</span>
+            </div>
+            <div class="mobile-card-body">
+              <div class="mobile-card-row"><span class="mobile-card-label">氏名</span><span class="mobile-card-value">${toHalfwidthKana(c.customer_name || "-")}</span></div>
+              <div class="mobile-card-row"><span class="mobile-card-label">電話</span><span class="mobile-card-value">${toHalfwidthKana(c.phone || "-")}</span></div>
+              <div class="mobile-card-row"><span class="mobile-card-label">反響日</span><span class="mobile-card-value">${formatInquiryDateShort(c.inquiry_date)}</span></div>
+              <div class="mobile-card-row"><span class="mobile-card-label">反響</span><span class="mobile-card-value">${toHalfwidthKana(c.inquiry_source || "-")}</span></div>
+              <div class="mobile-card-row full"><span class="mobile-card-label">${propertyLabel}</span><span class="mobile-card-value">${toHalfwidthKana(propertyCol)}</span></div>
+              <div class="mobile-card-row full">${progressHtml}</div>
+            </div>
+            <div class="mobile-card-actions">
+              <button class="btn btn-outline" onclick="event.stopPropagation(); openEditCustomerModal('${c.id}')">編集</button>
+              <button class="btn btn-outline" style="color:var(--danger-color);border-color:var(--danger-color);" onclick="event.stopPropagation(); deleteCustomerFromList('${c.id}', '${deleteName}')">削除</button>
+            </div>
+          </div>`;
+        }).join("");
+      }
+
+      // Desktop table
       tbody.innerHTML = pageCustomers.map(c => {
         const statusClass = `status-${c.status}`;
         const progressHtml = renderProgressBadges(c, customerState.category);
@@ -5398,7 +5774,6 @@
         // 除外申請期限ハイライト計算（反響ごとの期限ベース）
         let rowBgStyle = "";
         if (customerState.category === "sell" && c.inquiry_date) {
-          // 課金除外が「除外〇」なら色付けしない
           const be = (c.billing_exclusion || "").trim();
           if (be !== "除外〇") {
             const source = c.inquiry_source || "";
@@ -6633,6 +7008,87 @@
         initCustomerPage();
       }
     };
+
+  // ===== MOBILE NAVIGATION =====
+  function isMobileView() { return window.innerWidth <= 768; }
+
+  let mobileMoreOpen = false;
+  const mobilePageMap = {
+    dashboard: "dashboard",
+    contracts: "contracts",
+    customers: "customers",
+    deadline: "deadline",
+    register: "register",
+    "closed-contracted": "closed-contracted",
+    "closed-purchased": "closed-purchased",
+    "closed-canceled": "closed-canceled",
+    "closed-other": "closed-other",
+    "by-staff": "by-staff",
+    settings: "settings",
+    admin: "admin"
+  };
+
+  function closeMobileMoreMenu() {
+    const menu = el("mobileMoreMenu");
+    if (menu) menu.classList.add("hidden");
+    mobileMoreOpen = false;
+  }
+
+  function toggleMobileMoreMenu() {
+    const menu = el("mobileMoreMenu");
+    if (!menu) return;
+    mobileMoreOpen = !mobileMoreOpen;
+    menu.classList.toggle("hidden", !mobileMoreOpen);
+  }
+
+  function updateMobileNavActive(page) {
+    const mainPages = ["dashboard", "contracts", "customers", "deadline"];
+    document.querySelectorAll(".mobile-bottom-nav .mobile-nav-item").forEach(btn => {
+      const p = btn.dataset.mobPage;
+      if (p) btn.classList.toggle("active", p === page || (!mainPages.includes(page) && false));
+      if (btn.hasAttribute("data-mob-more")) {
+        btn.classList.toggle("active", !mainPages.includes(page));
+      }
+    });
+  }
+
+  // Bottom nav clicks
+  document.querySelectorAll("[data-mob-page]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const page = btn.dataset.mobPage;
+      if (!page) return;
+      closeMobileMoreMenu();
+      showPage(page);
+      updateSidebarActive(page);
+      updateMobileNavActive(page);
+    });
+  });
+
+  // More button
+  document.querySelector("[data-mob-more]")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleMobileMoreMenu();
+  });
+
+  // Close more menu when clicking outside
+  document.addEventListener("click", (e) => {
+    if (mobileMoreOpen) {
+      const menu = el("mobileMoreMenu");
+      const moreBtn = document.querySelector("[data-mob-more]");
+      if (menu && !menu.contains(e.target) && moreBtn && !moreBtn.contains(e.target)) {
+        closeMobileMoreMenu();
+      }
+    }
+  });
+
+  // PWA Service Worker Registration
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then((reg) => console.log('SW registered:', reg.scope))
+        .catch((err) => console.error('SW registration failed:', err));
+    });
+  }
 
   </script>
 </body>
