@@ -308,6 +308,17 @@ def save_goal_progress_data(data):
 
 
 # ------------------------------------------------------------
+# 担当別月別目標データ操作
+# ------------------------------------------------------------
+def load_staff_monthly_goals():
+    return load_app_setting("staff_monthly_goals", {})
+
+
+def save_staff_monthly_goals(data):
+    save_app_setting("staff_monthly_goals", data)
+
+
+# ------------------------------------------------------------
 # 目標・売上ユーティリティ
 # ------------------------------------------------------------
 def normalize_goal(goal):
@@ -1729,6 +1740,55 @@ def api_goals():
     }
     response.update(saved_goal)
     return jsonify(response)
+
+
+# ------------------------------------------------------------
+# 担当別月別目標 API
+# ------------------------------------------------------------
+@app.route("/api/staff-monthly-goals", methods=["GET"])
+@login_required
+def api_get_staff_monthly_goals():
+    """担当別月別目標を取得"""
+    year = request.args.get("year", str(datetime.now().year))
+    data = load_staff_monthly_goals()
+    return jsonify(data.get(year, {}))
+
+
+@app.route("/api/staff-monthly-goals/<staff_name>", methods=["PUT"])
+@login_required
+def api_update_staff_monthly_goals(staff_name):
+    """担当者の月別目標を保存（担当者単位）"""
+    body = request.get_json() or {}
+    year = body.get("year", str(datetime.now().year))
+    months = body.get("months", {})
+
+    cleaned = {}
+    for month_str, values in months.items():
+        try:
+            m = int(month_str)
+            if m < 1 or m > 12:
+                continue
+        except (TypeError, ValueError):
+            continue
+        actual = 0
+        target = 0
+        try:
+            actual = max(0, int(values.get("actual", 0)))
+        except (TypeError, ValueError):
+            pass
+        try:
+            target = max(0, int(values.get("target", 0)))
+        except (TypeError, ValueError):
+            pass
+        cleaned[str(m)] = {"actual": actual, "target": target}
+
+    data = load_staff_monthly_goals()
+    if year not in data:
+        data[year] = {}
+    data[year][staff_name] = cleaned
+    save_staff_monthly_goals(data)
+
+    return jsonify({"ok": True, "staff": staff_name, "year": year, "months": cleaned})
 
 
 # ------------------------------------------------------------

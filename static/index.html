@@ -286,6 +286,19 @@
     .legend-color.senin { background: #10b981; }
     .legend-color.ippan { background: #f59e0b; }
     .chart-container { height: 180px; }
+    .staff-monthly-section { margin-top: 16px; border-top: 1px solid var(--gray-200); padding-top: 12px; }
+    .staff-monthly-block { margin-bottom: 16px; }
+    .staff-monthly-block-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+    .staff-monthly-block-header h4 { margin: 0; font-size: 13px; font-weight: 700; color: var(--gray-800); }
+    .staff-monthly-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .staff-monthly-table th,
+    .staff-monthly-table td { padding: 3px 6px; text-align: center; border-bottom: 1px solid var(--gray-100); }
+    .staff-monthly-table th { color: var(--gray-500); font-weight: 600; }
+    .staff-monthly-table input[type="number"] { width: 48px; padding: 2px 4px; border: 1px solid var(--gray-300); border-radius: 4px; text-align: center; font-size: 12px; }
+    .diff-positive { color: #16a34a; font-weight: 600; }
+    .diff-negative { color: #dc2626; font-weight: 600; }
+    .diff-zero { color: var(--gray-500); }
+    .btn-save-staff-goals { font-size: 11px; padding: 3px 10px; }
     .staff-summary { font-size: 13px; color: #374151; line-height: 1.8; }
     .staff-summary-row { padding: 2px 0; }
     .goal-card { background: #fff; border: 1px solid var(--gray-200); border-radius: 10px; padding: 16px 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin: 16px 0; }
@@ -1936,6 +1949,38 @@
     </div>
   </div>
 
+  <!-- 担当者別月次推移モーダル -->
+  <div class="modal-backdrop hidden" id="modalStaffMonthlyTrend">
+    <div class="modal" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="staffMonthlyTrendTitle">月次推移</h3>
+        <button class="modal-close" data-close="modalStaffMonthlyTrend">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="monthly-trend-tabs" id="staffMonthlyTrendYearTabs"></div>
+        <div class="table-container" style="max-height: 360px; overflow-y: auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>月</th>
+                <th>当月</th>
+                <th>成約</th>
+                <th>買取</th>
+                <th>中止</th>
+                <th>在庫</th>
+                <th>過不足</th>
+              </tr>
+            </thead>
+            <tbody id="staffMonthlyTrendBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" data-close="modalStaffMonthlyTrend">閉じる</button>
+      </div>
+    </div>
+  </div>
+
   <!-- CSVエクスポートモーダル -->
   <div class="modal-backdrop hidden" id="modalExport">
     <div class="modal" style="max-width: 400px;">
@@ -2167,7 +2212,9 @@
       goalCarryOver: { ...DEFAULT_GOAL_CARRY },
       sales: { ...DEFAULT_SALES_STATE },
       goalProgress: { updatedAt: "", monthly: {}, yearly: {} },
+      staffMonthlyGoals: {},
       monthlyTrendYear: "",
+      staffTrendYear: "",
       currentUser: null,
       loginId: null,
       filters: { staff: "", status: "", from: "", to: "", query: "", closedOnly: false },
@@ -2458,12 +2505,14 @@
       state.staffOrder = [];
       state.sales = { ...DEFAULT_SALES_STATE };
       state.goalProgress = { updatedAt: "", monthly: {}, yearly: {} };
+      state.staffMonthlyGoals = {};
       state.monthlyTrendYear = "";
+      state.staffTrendYear = "";
       showLogin();
     }
 
     async function loadAll() {
-      await Promise.all([loadMasters(), loadContracts(), loadSummary(), loadStatusColors(), loadGoals(), loadSales(), loadGoalProgress()]);
+      await Promise.all([loadMasters(), loadContracts(), loadSummary(), loadStatusColors(), loadGoals(), loadSales(), loadGoalProgress(), loadStaffMonthlyGoals()]);
       renderFilters();
       renderStats();
       renderAlert();
@@ -2664,6 +2713,13 @@
       }
     }
 
+    async function loadStaffMonthlyGoals() {
+      try {
+        const year = new Date().getFullYear();
+        state.staffMonthlyGoals = await apiFetch(`/api/staff-monthly-goals?year=${year}`);
+      } catch (err) { console.error(err); }
+    }
+
     async function loadSales() {
       try {
         const res = await apiFetch("/api/sales");
@@ -2704,6 +2760,7 @@
         renderChart();
         renderStaffSummary();
         renderGoalSummary();
+        renderStaffMonthlyGoals();
       } catch (err) { console.error(err); }
     }
 
@@ -2870,6 +2927,74 @@
       });
     }
 
+    function getStaffMonthlyBreakdown(staffName) {
+      const map = new Map();
+      const all = [...state.contracts, ...state.closed];
+
+      const ensureEntry = (parsed) => {
+        if (!parsed) return null;
+        const key = `${parsed.year}-${String(parsed.month).padStart(2, "0")}`;
+        if (!map.has(key)) map.set(key, { add: 0, contract: 0, purchase: 0, cancel: 0, parsed });
+        return map.get(key);
+      };
+
+      const staffContracts = all.filter((c) => (c.staff || "") === staffName);
+
+      staffContracts.forEach((c) => {
+        const entry = ensureEntry(parseMonthKey(c.raw?.source_file || c.source_file));
+        if (entry) entry.add += 1;
+      });
+
+      staffContracts.forEach((c) => {
+        if (c.status === "成約") {
+          const entry = ensureEntry(parseMonthFromDateStr(c.closeInfo?.成約日 || c.statusDate));
+          if (entry) entry.contract += 1;
+        }
+        if (c.status === "買取") {
+          const entry = ensureEntry(parseMonthFromDateStr(c.purchaseInfo?.買取日 || c.statusDate));
+          if (entry) entry.purchase += 1;
+        }
+        if (c.status === "中止") {
+          const entry = ensureEntry(parseMonthFromDateStr(c.cancelInfo?.中止日 || c.statusDate));
+          if (entry) entry.cancel += 1;
+        }
+        if (c.status === "他決") {
+          const entry = ensureEntry(parseMonthFromDateStr(c.otherInfo?.他決日 || c.statusDate));
+          if (entry) entry.cancel += 1;
+        }
+      });
+
+      const sorted = Array.from(map.values()).sort((a, b) => {
+        if (a.parsed.year !== b.parsed.year) return a.parsed.year - b.parsed.year;
+        return a.parsed.month - b.parsed.month;
+      });
+
+      let inventory = 0;
+      const goalsData = state.staffMonthlyGoals || {};
+      const staffGoals = goalsData[staffName] || {};
+
+      return sorted.map((entry) => {
+        inventory = inventory + entry.add - entry.contract - entry.purchase - entry.cancel;
+        const monthGoal = staffGoals[String(entry.parsed.month)] || {};
+        const target = monthGoal.target || 0;
+        const actual = monthGoal.actual || 0;
+        const diff = actual - target;
+        return {
+          year: entry.parsed.year,
+          month: entry.parsed.month,
+          label: `${entry.parsed.year}年${String(entry.parsed.month).padStart(2, "0")}月`,
+          add: entry.add,
+          contract: entry.contract,
+          purchase: entry.purchase,
+          cancel: entry.cancel,
+          inventory,
+          target,
+          actual,
+          diff,
+        };
+      });
+    }
+
     function normalizeBrokerageType(typeName) {
       const raw = String(typeName || "").trim();
       if (!raw) return null;
@@ -2927,13 +3052,165 @@
       const dataset = (key, color) => ({ label: key, data: state.summary.map((s) => s[key] || 0), backgroundColor: color, stack: "stack" });
       const data = { labels, datasets: [dataset("専属", "#3b82f6"), dataset("専任", "#10b981"), dataset("一般", "#f59e0b")] };
       const ctx = document.getElementById("staffChart");
-      if (state.chart) { state.chart.data = data; state.chart.update(); return; }
-      state.chart = new Chart(ctx, { type: "bar", data, options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } } }, plugins: { legend: { display: false } } } });
+
+      const chartOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            stacked: true,
+            ticks: {
+              color: "#2563eb",
+              font: { weight: "bold" },
+            },
+          },
+          y: { stacked: true, beginAtZero: true, ticks: { stepSize: 1 } },
+        },
+        plugins: {
+          legend: { display: false },
+        },
+        onClick: (event, elements, chart) => {
+          const xScale = chart.scales.x;
+          if (!xScale) return;
+          const rect = chart.canvas.getBoundingClientRect();
+          const y = event.native.clientY - rect.top;
+          if (y > xScale.top) {
+            const x = event.native.clientX - rect.left;
+            for (let i = 0; i < labels.length; i++) {
+              const labelX = xScale.getPixelForValue(i);
+              if (Math.abs(x - labelX) < 40) {
+                openStaffMonthlyTrendModal(labels[i]);
+                return;
+              }
+            }
+          }
+          if (elements.length > 0) {
+            const idx = elements[0].index;
+            openStaffMonthlyTrendModal(labels[idx]);
+          }
+        },
+      };
+
+      if (state.chart) { state.chart.data = data; state.chart.options = chartOptions; state.chart.update(); return; }
+      state.chart = new Chart(ctx, { type: "bar", data, options: chartOptions });
+
+      ctx.addEventListener("mousemove", (e) => {
+        const chart = state.chart;
+        if (!chart) return;
+        const xScale = chart.scales.x;
+        if (!xScale) return;
+        const rect = ctx.getBoundingClientRect();
+        const y = e.clientY - rect.top;
+        ctx.style.cursor = y > xScale.top ? "pointer" : "";
+      });
     }
 
     function renderStaffSummary() {
       const container = el("staffSummary"); if (!container) return;
       container.innerHTML = state.summary.map((s) => `<div class="staff-summary-row">${s["担当"]}の媒介件数${s.total}件 / 一般${s["一般"] || 0}件 専任${s["専任"] || 0}件 専属${s["専属"] || 0}件</div>`).join("");
+    }
+
+    function renderStaffMonthlyGoals() {
+      let section = document.querySelector(".staff-monthly-section");
+      const chartCard = document.querySelector(".chart-card");
+      if (!chartCard) return;
+
+      if (!section) {
+        section = document.createElement("div");
+        section.className = "staff-monthly-section";
+        chartCard.appendChild(section);
+      }
+
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth() + 1;
+
+      const staffNames = (state.staffOrder && state.staffOrder.length > 0)
+        ? state.staffOrder
+        : state.summary.map((s) => s["担当"]);
+      if (staffNames.length === 0) { section.innerHTML = ""; return; }
+
+      const goalsData = state.staffMonthlyGoals || {};
+
+      section.innerHTML = staffNames.map((name) => {
+        const staffData = goalsData[name] || {};
+        const rows = [];
+        for (let m = 1; m <= currentMonth; m++) {
+          const entry = staffData[String(m)] || { actual: 0, target: 0 };
+          const diff = entry.actual - entry.target;
+          const diffClass = diff > 0 ? "diff-positive" : diff < 0 ? "diff-negative" : "diff-zero";
+          const diffText = diff > 0 ? `+${diff}件` : `${diff}件`;
+          rows.push(`<tr>
+            <td>${m}月</td>
+            <td><input type="number" min="0" value="${entry.actual}" data-staff="${name}" data-month="${m}" data-field="actual"></td>
+            <td><input type="number" min="0" value="${entry.target}" data-staff="${name}" data-month="${m}" data-field="target"></td>
+            <td class="${diffClass}">${diffText}</td>
+          </tr>`);
+        }
+        return `<div class="staff-monthly-block" data-staff-block="${name}">
+          <div class="staff-monthly-block-header">
+            <h4>${name}</h4>
+            <button class="btn btn-primary btn-save-staff-goals" data-save-staff="${name}">保存</button>
+          </div>
+          <table class="staff-monthly-table">
+            <thead><tr><th>月</th><th>実績</th><th>目標</th><th>過不足</th></tr></thead>
+            <tbody>${rows.join("")}</tbody>
+          </table>
+        </div>`;
+      }).join("");
+
+      // 入力変更時に過不足を即時再計算
+      section.querySelectorAll("input[type='number']").forEach((input) => {
+        input.addEventListener("input", () => {
+          const staffName = input.dataset.staff;
+          const month = input.dataset.month;
+          const block = section.querySelector(`[data-staff-block="${staffName}"]`);
+          if (!block) return;
+          const actualInput = block.querySelector(`input[data-staff="${staffName}"][data-month="${month}"][data-field="actual"]`);
+          const targetInput = block.querySelector(`input[data-staff="${staffName}"][data-month="${month}"][data-field="target"]`);
+          if (!actualInput || !targetInput) return;
+          const diff = (Number(actualInput.value) || 0) - (Number(targetInput.value) || 0);
+          const diffTd = targetInput.closest("tr").querySelector("td:last-child");
+          if (diffTd) {
+            diffTd.className = diff > 0 ? "diff-positive" : diff < 0 ? "diff-negative" : "diff-zero";
+            diffTd.textContent = diff > 0 ? `+${diff}件` : `${diff}件`;
+          }
+        });
+      });
+
+      // 保存ボタン
+      section.querySelectorAll("[data-save-staff]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const staffName = btn.dataset.saveStaff;
+          const block = section.querySelector(`[data-staff-block="${staffName}"]`);
+          if (!block) return;
+          const months = {};
+          block.querySelectorAll("input[data-field='actual']").forEach((input) => {
+            const m = input.dataset.month;
+            const targetInput = block.querySelector(`input[data-staff="${staffName}"][data-month="${m}"][data-field="target"]`);
+            months[m] = {
+              actual: Number(input.value) || 0,
+              target: Number(targetInput?.value) || 0,
+            };
+          });
+          try {
+            btn.disabled = true;
+            btn.textContent = "保存中...";
+            await apiFetch(`/api/staff-monthly-goals/${encodeURIComponent(staffName)}`, {
+              method: "PUT",
+              body: JSON.stringify({ year: String(new Date().getFullYear()), months }),
+            });
+            if (!state.staffMonthlyGoals) state.staffMonthlyGoals = {};
+            state.staffMonthlyGoals[staffName] = months;
+            btn.textContent = "\u2713 保存済";
+            setTimeout(() => { btn.textContent = "保存"; btn.disabled = false; }, 1500);
+          } catch (err) {
+            alert("保存に失敗しました: " + err.message);
+            btn.textContent = "保存";
+            btn.disabled = false;
+          }
+        });
+      });
     }
 
     function buildAutoGoalCurrentRows(staffTargets = {}, includeSet = new Set()) {
@@ -3304,6 +3581,65 @@
 
       renderMonthlyTrendRows(list, activeYear);
       openModal("modalMonthlyTrend");
+    }
+
+    function renderStaffMonthlyTrendRows(list, targetYear) {
+      const body = el("staffMonthlyTrendBody"); if (!body) return;
+      const rows = targetYear ? list.filter((m) => Number(m.year) === Number(targetYear)) : list;
+      if (!rows.length) {
+        body.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:16px;color:var(--gray-500);">データがありません</td></tr>`;
+        return;
+      }
+      body.innerHTML = rows.map((m) => {
+        const diffClass = m.diff > 0 ? "diff-positive" : m.diff < 0 ? "diff-negative" : "diff-zero";
+        const diffText = m.diff > 0 ? `+${m.diff}` : `${m.diff}`;
+        return `<tr>
+          <td>${m.label}</td>
+          <td>${m.add}件</td>
+          <td>${m.contract}件</td>
+          <td>${m.purchase}件</td>
+          <td>${m.cancel}件</td>
+          <td>${m.inventory}件</td>
+          <td class="${diffClass}">${diffText}件</td>
+        </tr>`;
+      }).join("");
+    }
+
+    function openStaffMonthlyTrendModal(staffName) {
+      el("staffMonthlyTrendTitle").textContent = `${staffName} の月次推移`;
+      const list = getStaffMonthlyBreakdown(staffName);
+      const tabs = el("staffMonthlyTrendYearTabs");
+      const body = el("staffMonthlyTrendBody");
+      if (!tabs || !body) return;
+
+      if (!list.length) {
+        tabs.innerHTML = "";
+        renderStaffMonthlyTrendRows(list, "");
+        openModal("modalStaffMonthlyTrend");
+        return;
+      }
+
+      const years = [...new Set(list.map((m) => Number(m.year)).filter((y) => Number.isFinite(y)))].sort((a, b) => b - a);
+      if (!years.length) {
+        tabs.innerHTML = "";
+        renderStaffMonthlyTrendRows(list, "");
+        openModal("modalStaffMonthlyTrend");
+        return;
+      }
+
+      const activeYear = years.includes(Number(state.staffTrendYear)) ? Number(state.staffTrendYear) : years[0];
+      state.staffTrendYear = activeYear;
+
+      tabs.innerHTML = years.map((year) => `<button type="button" class="monthly-trend-tab ${year === activeYear ? "active" : ""}" data-staff-trend-year="${year}">${year}年度</button>`).join("");
+      tabs.querySelectorAll("button[data-staff-trend-year]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          state.staffTrendYear = Number(btn.dataset.staffTrendYear);
+          openStaffMonthlyTrendModal(staffName);
+        });
+      });
+
+      renderStaffMonthlyTrendRows(list, activeYear);
+      openModal("modalStaffMonthlyTrend");
     }
 
     function renderDeadlineTable() {
