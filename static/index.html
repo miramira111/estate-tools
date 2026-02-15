@@ -286,19 +286,19 @@
     .legend-color.senin { background: #10b981; }
     .legend-color.ippan { background: #f59e0b; }
     .chart-container { height: 180px; }
-    .staff-monthly-section { margin-top: 16px; border-top: 1px solid var(--gray-200); padding-top: 12px; }
-    .staff-monthly-block { margin-bottom: 16px; }
-    .staff-monthly-block-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-    .staff-monthly-block-header h4 { margin: 0; font-size: 13px; font-weight: 700; color: var(--gray-800); }
-    .staff-monthly-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .staff-monthly-section { margin-top: 16px; border-top: 1px solid var(--gray-200); padding-top: 12px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .staff-monthly-block { min-width: 0; }
+    .staff-monthly-block-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+    .staff-monthly-block-header h4 { margin: 0; font-size: 12px; font-weight: 700; color: var(--gray-800); }
+    .staff-monthly-table { width: 100%; border-collapse: collapse; font-size: 11px; }
     .staff-monthly-table th,
-    .staff-monthly-table td { padding: 3px 6px; text-align: center; border-bottom: 1px solid var(--gray-100); }
-    .staff-monthly-table th { color: var(--gray-500); font-weight: 600; }
-    .staff-monthly-table input[type="number"] { width: 48px; padding: 2px 4px; border: 1px solid var(--gray-300); border-radius: 4px; text-align: center; font-size: 12px; }
+    .staff-monthly-table td { padding: 2px 3px; text-align: center; border-bottom: 1px solid var(--gray-100); }
+    .staff-monthly-table th { color: var(--gray-500); font-weight: 600; font-size: 10px; }
+    .staff-monthly-table input[type="number"] { width: 36px; padding: 1px 2px; border: 1px solid var(--gray-300); border-radius: 4px; text-align: center; font-size: 11px; }
     .diff-positive { color: #16a34a; font-weight: 600; }
     .diff-negative { color: #dc2626; font-weight: 600; }
     .diff-zero { color: var(--gray-500); }
-    .btn-save-staff-goals { font-size: 11px; padding: 3px 10px; }
+    .btn-save-staff-goals { font-size: 10px; padding: 2px 8px; }
     .staff-summary { font-size: 13px; color: #374151; line-height: 1.8; }
     .staff-summary-row { padding: 2px 0; }
     .goal-card { background: #fff; border: 1px solid var(--gray-200); border-radius: 10px; padding: 16px 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin: 16px 0; }
@@ -3069,30 +3069,39 @@
         plugins: {
           legend: { display: false },
         },
-        onClick: (event, elements, chart) => {
-          const xScale = chart.scales.x;
-          if (!xScale) return;
-          const rect = chart.canvas.getBoundingClientRect();
-          const y = event.native.clientY - rect.top;
-          if (y > xScale.top) {
-            const x = event.native.clientX - rect.left;
-            for (let i = 0; i < labels.length; i++) {
-              const labelX = xScale.getPixelForValue(i);
-              if (Math.abs(x - labelX) < 40) {
-                openStaffMonthlyTrendModal(labels[i]);
-                return;
-              }
-            }
-          }
-          if (elements.length > 0) {
-            const idx = elements[0].index;
-            openStaffMonthlyTrendModal(labels[idx]);
-          }
-        },
       };
 
       if (state.chart) { state.chart.data = data; state.chart.options = chartOptions; state.chart.update(); return; }
       state.chart = new Chart(ctx, { type: "bar", data, options: chartOptions });
+
+      // canvas に直接イベントリスナーを1回だけ登録
+      ctx.addEventListener("click", (e) => {
+        const chart = state.chart;
+        if (!chart) return;
+        const currentLabels = chart.data.labels || [];
+        if (!currentLabels.length) return;
+        const xScale = chart.scales.x;
+        if (!xScale) return;
+        const rect = ctx.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        // X軸ラベル領域クリック
+        if (y > xScale.top) {
+          for (let i = 0; i < currentLabels.length; i++) {
+            const labelX = xScale.getPixelForValue(i);
+            if (Math.abs(x - labelX) < 40) {
+              openStaffMonthlyTrendModal(currentLabels[i]);
+              return;
+            }
+          }
+        }
+        // バークリック
+        const elements = chart.getElementsAtEventForMode(e, "nearest", { intersect: true }, false);
+        if (elements.length > 0) {
+          const idx = elements[0].index;
+          openStaffMonthlyTrendModal(currentLabels[idx]);
+        }
+      });
 
       ctx.addEventListener("mousemove", (e) => {
         const chart = state.chart;
