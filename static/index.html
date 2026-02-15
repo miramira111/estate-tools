@@ -288,7 +288,6 @@
     .chart-container { height: 180px; }
     .staff-monthly-section { margin-top: 16px; border-top: 1px solid var(--gray-200); padding-top: 12px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
     .staff-monthly-block { min-width: 0; }
-    .staff-monthly-block-footer { text-align: center; margin-top: 2px; }
     .staff-monthly-table { width: 100%; border-collapse: collapse; font-size: 11px; }
     .staff-monthly-table th,
     .staff-monthly-table td { padding: 2px 3px; text-align: center; border-bottom: 1px solid var(--gray-100); }
@@ -297,7 +296,6 @@
     .diff-positive { color: #16a34a; font-weight: 600; }
     .diff-negative { color: #dc2626; font-weight: 600; }
     .diff-zero { color: var(--gray-500); }
-    .btn-save-staff-goals { font-size: 10px; padding: 1px 6px; line-height: 1.4; border-radius: 3px; }
     .staff-summary { font-size: 13px; color: #374151; line-height: 1.8; }
     .staff-summary-row { padding: 2px 0; }
     .goal-card { background: #fff; border: 1px solid var(--gray-200); border-radius: 10px; padding: 16px 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin: 16px 0; }
@@ -1954,29 +1952,47 @@
 
   <!-- 担当者別月次推移モーダル -->
   <div class="modal-backdrop hidden" id="modalStaffMonthlyTrend">
-    <div class="modal" style="max-width: 600px;">
+    <div class="modal" style="max-width: 720px;">
       <div class="modal-header">
         <h3 class="modal-title" id="staffMonthlyTrendTitle">月次推移</h3>
         <button class="modal-close" data-close="modalStaffMonthlyTrend">×</button>
       </div>
       <div class="modal-body">
         <div class="monthly-trend-tabs" id="staffMonthlyTrendYearTabs"></div>
-        <div class="table-container" style="max-height: 360px; overflow-y: auto;">
-          <table>
-            <thead>
-              <tr>
-                <th>月</th>
-                <th>当月</th>
-                <th>成約</th>
-                <th>買取</th>
-                <th>他決</th>
-                <th>中止</th>
-                <th>在庫</th>
-                <th>過不足</th>
-              </tr>
-            </thead>
-            <tbody id="staffMonthlyTrendBody"></tbody>
-          </table>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <!-- 左: 月次推移テーブル -->
+          <div>
+            <h4 style="margin:0 0 6px;font-size:12px;font-weight:700;color:var(--gray-600);">月次推移</h4>
+            <div class="table-container" style="max-height: 360px; overflow-y: auto;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>月</th>
+                    <th>当月</th>
+                    <th>成約</th>
+                    <th>買取</th>
+                    <th>他決</th>
+                    <th>中止</th>
+                    <th>在庫</th>
+                  </tr>
+                </thead>
+                <tbody id="staffMonthlyTrendBody"></tbody>
+              </table>
+            </div>
+          </div>
+          <!-- 右: 実績・目標入力 -->
+          <div>
+            <h4 style="margin:0 0 6px;font-size:12px;font-weight:700;color:var(--gray-600);">実績・目標</h4>
+            <div class="table-container" style="max-height: 360px; overflow-y: auto;">
+              <table class="staff-monthly-table">
+                <thead><tr><th>月</th><th>実績</th><th>目標</th><th>過不足</th></tr></thead>
+                <tbody id="staffModalGoalsBody"></tbody>
+              </table>
+            </div>
+            <div style="text-align:right;margin-top:6px;">
+              <button class="btn btn-primary" id="staffModalGoalsSave" style="font-size:12px;padding:4px 14px;">保存</button>
+            </div>
+          </div>
         </div>
       </div>
       <div class="modal-actions">
@@ -3151,8 +3167,10 @@
       }
 
       const now = new Date();
-      const currentYear = now.getFullYear();
-      const currentMonth = now.getMonth() + 1;
+      // 前月を算出（1月なら前年12月）
+      let prevMonth = now.getMonth(); // 0-based → 現在月-1 = 前月
+      let prevYear = now.getFullYear();
+      if (prevMonth === 0) { prevMonth = 12; prevYear -= 1; } // 1月 → 前年12月
 
       const staffNames = (state.staffOrder && state.staffOrder.length > 0)
         ? state.staffOrder
@@ -3161,84 +3179,27 @@
 
       const goalsData = state.staffMonthlyGoals || {};
 
-      section.innerHTML = staffNames.map((name) => {
+      section.innerHTML = `<div style="grid-column:1/-1;font-size:11px;color:var(--gray-500);font-weight:600;margin-bottom:2px;">${prevYear}年${prevMonth}月末時点</div>` +
+        staffNames.map((name) => {
         const staffData = goalsData[name] || {};
-        const rows = [];
-        for (let m = 1; m <= currentMonth; m++) {
-          const entry = staffData[String(m)] || { actual: 0, target: 0 };
-          const diff = entry.actual - entry.target;
-          const diffClass = diff > 0 ? "diff-positive" : diff < 0 ? "diff-negative" : "diff-zero";
-          const diffText = diff > 0 ? `+${diff}件` : `${diff}件`;
-          rows.push(`<tr>
-            <td>${m}月</td>
-            <td><input type="number" min="0" value="${entry.actual}" data-staff="${name}" data-month="${m}" data-field="actual"></td>
-            <td><input type="number" min="0" value="${entry.target}" data-staff="${name}" data-month="${m}" data-field="target"></td>
-            <td class="${diffClass}">${diffText}</td>
-          </tr>`);
-        }
-        return `<div class="staff-monthly-block" data-staff-block="${name}">
+        const entry = staffData[String(prevMonth)] || { actual: 0, target: 0 };
+        const diff = entry.actual - entry.target;
+        const diffClass = diff > 0 ? "diff-positive" : diff < 0 ? "diff-negative" : "diff-zero";
+        const diffText = diff > 0 ? `+${diff}件` : `${diff}件`;
+        return `<div class="staff-monthly-block">
           <table class="staff-monthly-table">
             <thead><tr><th>月</th><th>実績</th><th>目標</th><th>過不足</th></tr></thead>
-            <tbody>${rows.join("")}</tbody>
+            <tbody>
+              <tr>
+                <td>${prevMonth}月</td>
+                <td>${entry.actual}</td>
+                <td>${entry.target}</td>
+                <td class="${diffClass}">${diffText}</td>
+              </tr>
+            </tbody>
           </table>
-          <div class="staff-monthly-block-footer">
-            <button class="btn btn-primary btn-save-staff-goals" data-save-staff="${name}">保存</button>
-          </div>
         </div>`;
       }).join("");
-
-      // 入力変更時に過不足を即時再計算
-      section.querySelectorAll("input[type='number']").forEach((input) => {
-        input.addEventListener("input", () => {
-          const staffName = input.dataset.staff;
-          const month = input.dataset.month;
-          const block = section.querySelector(`[data-staff-block="${staffName}"]`);
-          if (!block) return;
-          const actualInput = block.querySelector(`input[data-staff="${staffName}"][data-month="${month}"][data-field="actual"]`);
-          const targetInput = block.querySelector(`input[data-staff="${staffName}"][data-month="${month}"][data-field="target"]`);
-          if (!actualInput || !targetInput) return;
-          const diff = (Number(actualInput.value) || 0) - (Number(targetInput.value) || 0);
-          const diffTd = targetInput.closest("tr").querySelector("td:last-child");
-          if (diffTd) {
-            diffTd.className = diff > 0 ? "diff-positive" : diff < 0 ? "diff-negative" : "diff-zero";
-            diffTd.textContent = diff > 0 ? `+${diff}件` : `${diff}件`;
-          }
-        });
-      });
-
-      // 保存ボタン
-      section.querySelectorAll("[data-save-staff]").forEach((btn) => {
-        btn.addEventListener("click", async () => {
-          const staffName = btn.dataset.saveStaff;
-          const block = section.querySelector(`[data-staff-block="${staffName}"]`);
-          if (!block) return;
-          const months = {};
-          block.querySelectorAll("input[data-field='actual']").forEach((input) => {
-            const m = input.dataset.month;
-            const targetInput = block.querySelector(`input[data-staff="${staffName}"][data-month="${m}"][data-field="target"]`);
-            months[m] = {
-              actual: Number(input.value) || 0,
-              target: Number(targetInput?.value) || 0,
-            };
-          });
-          try {
-            btn.disabled = true;
-            btn.textContent = "保存中...";
-            await apiFetch(`/api/staff-monthly-goals/${encodeURIComponent(staffName)}`, {
-              method: "PUT",
-              body: JSON.stringify({ year: String(new Date().getFullYear()), months }),
-            });
-            if (!state.staffMonthlyGoals) state.staffMonthlyGoals = {};
-            state.staffMonthlyGoals[staffName] = months;
-            btn.textContent = "\u2713 保存済";
-            setTimeout(() => { btn.textContent = "保存"; btn.disabled = false; }, 1500);
-          } catch (err) {
-            alert("保存に失敗しました: " + err.message);
-            btn.textContent = "保存";
-            btn.disabled = false;
-          }
-        });
-      });
     }
 
     function buildAutoGoalCurrentRows(staffTargets = {}, includeSet = new Set()) {
@@ -3614,28 +3575,18 @@
       openModal("modalMonthlyTrend");
     }
 
-    function renderStaffMonthlyTrendRows(list, targetYear, staffName) {
+    function renderStaffMonthlyTrendRows(list, targetYear) {
       const body = el("staffMonthlyTrendBody"); if (!body) return;
       const yr = Number(targetYear) || new Date().getFullYear();
       const now = new Date();
       const maxMonth = (yr === now.getFullYear()) ? now.getMonth() + 1 : 12;
 
-      // 月ごとのデータをマップ化
       const dataMap = new Map();
       list.filter((m) => Number(m.year) === yr).forEach((m) => dataMap.set(m.month, m));
-
-      const goalsData = state.staffMonthlyGoals || {};
-      const staffGoals = (staffName && goalsData[staffName]) || {};
 
       const rows = [];
       for (let m = 1; m <= maxMonth; m++) {
         const d = dataMap.get(m);
-        const monthGoal = staffGoals[String(m)] || {};
-        const target = monthGoal.target || 0;
-        const actual = monthGoal.actual || 0;
-        const diff = actual - target;
-        const diffClass = diff > 0 ? "diff-positive" : diff < 0 ? "diff-negative" : "diff-zero";
-        const diffText = diff > 0 ? `+${diff}` : `${diff}`;
         rows.push(`<tr>
           <td>${yr}年${String(m).padStart(2, "0")}月</td>
           <td>${d ? d.add : 0}件</td>
@@ -3644,10 +3595,85 @@
           <td>${d ? d.other : 0}件</td>
           <td>${d ? d.cancel : 0}件</td>
           <td>${d ? d.inventory : 0}件</td>
-          <td class="${diffClass}">${diffText}件</td>
         </tr>`);
       }
       body.innerHTML = rows.join("");
+    }
+
+    function renderStaffModalGoals(staffName) {
+      const goalsBody = el("staffModalGoalsBody"); if (!goalsBody) return;
+      const now = new Date();
+      const currentMonth = now.getMonth() + 1;
+      const goalsData = state.staffMonthlyGoals || {};
+      const staffData = goalsData[staffName] || {};
+
+      const rows = [];
+      for (let m = 1; m <= currentMonth; m++) {
+        const entry = staffData[String(m)] || { actual: 0, target: 0 };
+        const diff = entry.actual - entry.target;
+        const diffClass = diff > 0 ? "diff-positive" : diff < 0 ? "diff-negative" : "diff-zero";
+        const diffText = diff > 0 ? `+${diff}件` : `${diff}件`;
+        rows.push(`<tr>
+          <td>${m}月</td>
+          <td><input type="number" min="0" value="${entry.actual}" data-staff="${staffName}" data-month="${m}" data-field="actual"></td>
+          <td><input type="number" min="0" value="${entry.target}" data-staff="${staffName}" data-month="${m}" data-field="target"></td>
+          <td class="${diffClass}">${diffText}</td>
+        </tr>`);
+      }
+      goalsBody.innerHTML = rows.join("");
+
+      // 過不足リアルタイム再計算
+      goalsBody.querySelectorAll("input[type='number']").forEach((input) => {
+        input.addEventListener("input", () => {
+          const m = input.dataset.month;
+          const row = input.closest("tr");
+          if (!row) return;
+          const actualInput = row.querySelector(`input[data-field="actual"]`);
+          const targetInput = row.querySelector(`input[data-field="target"]`);
+          if (!actualInput || !targetInput) return;
+          const d = (Number(actualInput.value) || 0) - (Number(targetInput.value) || 0);
+          const diffTd = row.querySelector("td:last-child");
+          if (diffTd) {
+            diffTd.className = d > 0 ? "diff-positive" : d < 0 ? "diff-negative" : "diff-zero";
+            diffTd.textContent = d > 0 ? `+${d}件` : `${d}件`;
+          }
+        });
+      });
+
+      // 保存ボタン
+      const saveBtn = el("staffModalGoalsSave");
+      if (saveBtn) {
+        const newBtn = saveBtn.cloneNode(true);
+        saveBtn.parentNode.replaceChild(newBtn, saveBtn);
+        newBtn.addEventListener("click", async () => {
+          const months = {};
+          goalsBody.querySelectorAll("input[data-field='actual']").forEach((input) => {
+            const m = input.dataset.month;
+            const targetInput = goalsBody.querySelector(`input[data-month="${m}"][data-field="target"]`);
+            months[m] = {
+              actual: Number(input.value) || 0,
+              target: Number(targetInput?.value) || 0,
+            };
+          });
+          try {
+            newBtn.disabled = true;
+            newBtn.textContent = "保存中...";
+            await apiFetch(`/api/staff-monthly-goals/${encodeURIComponent(staffName)}`, {
+              method: "PUT",
+              body: JSON.stringify({ year: String(new Date().getFullYear()), months }),
+            });
+            if (!state.staffMonthlyGoals) state.staffMonthlyGoals = {};
+            state.staffMonthlyGoals[staffName] = months;
+            newBtn.textContent = "\u2713 保存済";
+            renderStaffMonthlyGoals();
+            setTimeout(() => { newBtn.textContent = "保存"; newBtn.disabled = false; }, 1500);
+          } catch (err) {
+            alert("保存に失敗しました: " + err.message);
+            newBtn.textContent = "保存";
+            newBtn.disabled = false;
+          }
+        });
+      }
     }
 
     function openStaffMonthlyTrendModal(staffName) {
@@ -3673,7 +3699,8 @@
         });
       });
 
-      renderStaffMonthlyTrendRows(list, activeYear, staffName);
+      renderStaffMonthlyTrendRows(list, activeYear);
+      renderStaffModalGoals(staffName);
       openModal("modalStaffMonthlyTrend");
     }
 
