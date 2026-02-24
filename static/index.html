@@ -4764,7 +4764,10 @@
         price,
         memo: data.memo || "",
       };
-      await apiFetch("/api/purchases", { method: "POST", body: JSON.stringify(payload) });
+      const res = await apiFetch("/api/purchases", { method: "POST", body: JSON.stringify(payload) });
+      if (res?.contract?.id) {
+        alert(`買取登録しました（No: ${res.contract.id}）`);
+      }
       closeModal("modalNewPurchase");
       await loadContracts();
       await loadSummary();

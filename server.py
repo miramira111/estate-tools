@@ -1064,6 +1064,43 @@ def get_file_for_purchase_date(date_str):
     return f"{dt.year}_{dt.month:02d}.json"
 
 
+def generate_purchase_id(purchase_date_str):
+    """買取用の媒介No.を自動採番する (R{和暦}-{月}-999 から降順)"""
+    try:
+        dt = datetime.strptime(purchase_date_str, "%Y-%m-%d")
+    except Exception:
+        dt = datetime.now()
+
+    era_year = dt.year - 2018  # 令和換算
+    month = dt.month
+    prefix = f"R{era_year}-{month}-"
+
+    # 同月の既存IDから使用済み連番を取得
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id FROM contracts WHERE id LIKE %s",
+                (prefix + "%",)
+            )
+            existing_ids = [row["id"] for row in cur.fetchall()]
+
+    used_seqs = set()
+    for eid in existing_ids:
+        try:
+            seq_part = eid.split("-")[2]
+            used_seqs.add(int(seq_part))
+        except (IndexError, ValueError):
+            pass
+
+    # 999から降順で空き番号を探す
+    for seq in range(999, 899, -1):
+        if seq not in used_seqs:
+            return f"R{era_year}-{month}-{seq}"
+
+    # 899まで埋まっている場合（通常あり得ない）
+    raise ValueError("買取用の空き番号がありません")
+
+
 # ------------------------------------------------------------
 # 月次進捗計算
 # ------------------------------------------------------------
@@ -1378,10 +1415,19 @@ def api_create_contract():
 def api_create_purchase():
     body = request.get_json() or {}
     contract_id = body.get("id", "") or ""
-    if contract_id and duplicate_exists(contract_id):
-        return jsonify({"error": "この媒介No.は既に使用されています"}), 400
 
     purchase_date = body.get("purchaseDate") or datetime.now().strftime("%Y-%m-%d")
+
+    # IDが空の場合、R{和暦}-{月}-999 から降順で自動採番
+    if not contract_id:
+        try:
+            contract_id = generate_purchase_id(purchase_date)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+
+    if duplicate_exists(contract_id):
+        return jsonify({"error": "この媒介No.は既に使用されています"}), 400
+
     source_file = get_file_for_purchase_date(purchase_date)
     year_month = source_file.replace(".json", "")
     now_iso = datetime.now().isoformat()
