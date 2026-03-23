@@ -1,4 +1,4 @@
-const CACHE_NAME = 'estate-tools-v2';
+const CACHE_NAME = 'estate-tools-v3';
 const STATIC_ASSETS = [
   '/',
   '/static/index.html',
