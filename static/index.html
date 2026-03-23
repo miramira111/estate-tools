@@ -2738,18 +2738,24 @@
     }
 
     function normalizeSalesState(rec) {
-      const out = { ...DEFAULT_SALES_STATE, staff: {} };
+      const out = { store: 0, staff: {} };
       if (!rec || typeof rec !== "object") return out;
-      const storeVal = Number(rec.store || 0);
-      out.store = Number.isNaN(storeVal) ? 0 : Math.max(0, storeVal);
       const staff = rec.staff || {};
       Object.keys(staff).forEach((name) => {
-        const val = Number(staff[name] || 0);
-        out.staff[name] = Number.isNaN(val) ? 0 : Math.max(0, val);
+        const val = staff[name];
+        if (val && typeof val === "object") {
+          out.staff[name] = {
+            new: Math.max(0, Number(val.new || 0)),
+            purchase: Math.max(0, Number(val.purchase || 0)),
+            cancel: Math.max(0, Number(val.cancel || 0)),
+          };
+        } else {
+          out.staff[name] = { new: Math.max(0, Number(val || 0)), purchase: 0, cancel: 0 };
+        }
       });
-      if (!out.store && Object.keys(out.staff).length) {
-        out.store = Object.values(out.staff).reduce((sum, val) => sum + Number(val || 0), 0);
-      }
+      let total = 0;
+      Object.values(out.staff).forEach((s) => { total += s.new + s.purchase - s.cancel; });
+      out.store = Math.max(0, total);
       return out;
     }
 
@@ -2767,7 +2773,11 @@
       Object.keys((sales.staff || {})).forEach((n) => names.add(n));
       const sortedNames = getSortedStaffNames(names);
       const rows = [{ label: "店舗合計", key: "store", value: Number(sales.store || 0) }];
-      sortedNames.forEach((name) => rows.push({ label: name, key: name, value: Number((sales.staff || {})[name] || 0) }));
+      sortedNames.forEach((name) => {
+        const s = (sales.staff || {})[name];
+        const net = (s && typeof s === "object") ? (s.new || 0) + (s.purchase || 0) - (s.cancel || 0) : Number(s || 0);
+        rows.push({ label: name, key: name, value: Math.max(0, net) });
+      });
       return rows;
     }
 
@@ -2815,21 +2825,20 @@
     function handleManualCounterClick(e) {
       const btn = e.target.closest("button[data-manual-delta][data-manual-key]");
       if (!btn) return;
-      if (!isManualCounterEnabled()) return;
       e.preventDefault();
       const key = btn.dataset.manualKey || "";
+      const cat = btn.dataset.manualCat || "new";
       const delta = Number(btn.dataset.manualDelta || 0);
       if (!key || !delta || Number.isNaN(delta)) return;
+      if (key === "store") return;
 
       const previousSales = normalizeSalesState(state.sales);
       const nextSales = normalizeSalesState(state.sales);
-      if (key === "store") {
-        nextSales.store = Math.max(0, Number(nextSales.store || 0) + delta);
-      } else {
-        const current = Number((nextSales.staff || {})[key] || 0);
-        nextSales.staff[key] = Math.max(0, current + delta);
-        nextSales.store = Math.max(0, Number(nextSales.store || 0) + delta);
-      }
+      if (!nextSales.staff[key]) nextSales.staff[key] = { new: 0, purchase: 0, cancel: 0 };
+      nextSales.staff[key][cat] = Math.max(0, Number(nextSales.staff[key][cat] || 0) + delta);
+      let total = 0;
+      Object.values(nextSales.staff).forEach((s) => { total += (s.new || 0) + (s.purchase || 0) - (s.cancel || 0); });
+      nextSales.store = Math.max(0, total);
       state.sales = nextSales;
       renderGoalSummary();
       renderGoalSettingsForm();
@@ -3387,6 +3396,34 @@
       }));
     }
 
+    function buildGoalRows(staffTargets = {}, includeSet = new Set()) {
+      const sales = normalizeSalesState(state.sales);
+      const staffSales = sales.staff || {};
+      const carryByStaff = (state.goalCarryOver?.staffCarryIn && Object.keys(state.goalCarryOver.staffCarryIn).length)
+        ? state.goalCarryOver.staffCarryIn
+        : (state.goalCarryOver?.staffAdjustments || {});
+      const names = new Set();
+      (state.masters["担当"] || []).forEach((n) => names.add(n));
+      state.summary.forEach((s) => names.add(s["担当"]));
+      Object.keys(staffTargets).forEach((n) => names.add(n));
+      Object.keys(staffSales).forEach((n) => names.add(n));
+      const filteredNames = includeSet.size > 0 ? Array.from(includeSet) : Array.from(names);
+      const orderMap = new Map((state.staffOrder || []).map((n, i) => [n, i]));
+      filteredNames.sort((a, b) => {
+        const ai = orderMap.has(a) ? orderMap.get(a) : 9999;
+        const bi = orderMap.has(b) ? orderMap.get(b) : 9999;
+        if (ai !== bi) return ai - bi;
+        return a.localeCompare(b, "ja");
+      });
+      return filteredNames.map((name) => {
+        const s = staffSales[name] || { new: 0, purchase: 0, cancel: 0 };
+        const n = s.new || 0, p = s.purchase || 0, c = s.cancel || 0;
+        const net = n + p - c;
+        const carryIn = Number(carryByStaff[name] || 0);
+        return { name, new: n, purchase: p, cancel: c, net, carryIn, current: net + carryIn, target: Number(staffTargets[name]) || 0 };
+      });
+    }
+
     function renderGoalSummary() {
       const overview = el("goalOverview");
       const list = el("goalStaffList");
@@ -3395,57 +3432,67 @@
       const storeTarget = Number(goals.storeTarget) || 0;
       const staffTargets = goals.staffTargets || {};
       const includeSet = new Set((goals.includeStaff || []).filter(Boolean));
-      const isManualMode = goals.progressMode === "manual";
       const carry = state.goalCarryOver || DEFAULT_GOAL_CARRY;
       const carryStore = Number(carry.storeCarryIn ?? carry.storeAdjustment ?? 0);
       const carryOut = Number(carry.storeCarryOut ?? 0);
-      const rows = isManualMode
-        ? buildManualGoalCurrentRows(staffTargets, includeSet)
-        : buildAutoGoalCurrentRows(staffTargets, includeSet);
-      const totalActual = isManualMode
-        ? Number((state.sales || DEFAULT_SALES_STATE).store || 0)
-        : rows.reduce((sum, r) => sum + Number(r.actual || 0), 0);
-      const totalCurrent = totalActual + carryStore;
-      const storePercent = storeTarget ? Math.min(100, Math.max(0, Math.round((totalCurrent / storeTarget) * 100))) : 0;
-      const storeRemain = storeTarget ? Math.max(0, storeTarget - totalCurrent) : null;
+      const rows = buildGoalRows(staffTargets, includeSet);
+      const totalNew = rows.reduce((s, r) => s + r.new, 0);
+      const totalPurchase = rows.reduce((s, r) => s + r.purchase, 0);
+      const totalCancel = rows.reduce((s, r) => s + r.cancel, 0);
+      const totalNet = totalNew + totalPurchase - totalCancel;
+      const totalCurrent = totalNet + carryStore;
       const carryText = !goals.carryOverEnabled
         ? "繰越: OFF"
         : `繰越: 開始${carryStore > 0 ? "+" : ""}${carryStore}件 / 次月${carryOut > 0 ? "+" : ""}${carryOut}件`;
-      const modeText = isManualMode ? "カウント: 手動入力" : "カウント: 自動";
       overview.innerHTML = [
-        `<span class="goal-pill">店舗: ${totalCurrent}件 / 目標${storeTarget || "-"}件 ${storeTarget ? `(${storePercent}%)` : "(目標未設定)"}</span>`,
-        `<span class="goal-pill">当月実績 ${totalActual}件</span>`,
-        storeRemain !== null ? `<span class="goal-pill">残り ${storeRemain}件</span>` : `<span class="goal-pill" style="background:#fef2f2;color:#b91c1c;">目標を設定してください</span>`,
-        `<span class="goal-pill">担当者 ${rows.length}名</span>`,
-        `<span class="goal-pill">${modeText}</span>`,
+        `<span class="goal-pill" style="font-weight:700;">純計 ${totalCurrent}件${storeTarget ? ` / 目標${storeTarget}件` : ""}</span>`,
         `<span class="goal-pill">${carryText}</span>`
       ].join("");
 
-      const renderItem = (name, key, current, target, manualAdjustable) => {
-        const percent = target ? Math.min(100, Math.max(0, Math.round((current / target) * 100))) : 0;
-        const remain = target ? Math.max(0, target - current) : null;
-        const width = target ? Math.min(100, Math.max(0, (current / target) * 100)) : 0;
-        const status = target ? `${current} / ${target}件 (${percent}%)` : `${current}件（目標未設定）`;
-        const remainText = remain === null ? "目標を設定してください" : `残り ${remain}件`;
-        const manualCurrent = Number((state.sales?.staff || {})[key] || 0);
-        const manualControls = (isManualMode && manualAdjustable) ? `<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-top:6px;">
-            <button type="button" class="manual-counter-btn" data-manual-key="${escapeHtml(key)}" data-manual-delta="-1" aria-label="${escapeHtml(name)}を1減らす" style="width:20px;height:20px;font-size:12px;border-radius:4px;">-</button>
-            <span style="min-width:30px;text-align:center;font-size:11px;color:var(--gray-600);">${manualCurrent}</span>
-            <button type="button" class="manual-counter-btn" data-manual-key="${escapeHtml(key)}" data-manual-delta="1" aria-label="${escapeHtml(name)}を1増やす" style="width:20px;height:20px;font-size:12px;border-radius:4px;">+</button>
-            <span class="manual-save-status"></span>
-          </div>` : "";
-        return `<div class="goal-item">
-            <div class="goal-item-header"><span>${name}</span><span>${status}</span></div>
-            <div class="goal-progress"><div class="goal-progress-bar" style="width:${width}%;"></div></div>
-            <div class="goal-progress-text">${remainText}</div>
-            ${manualControls}
-          </div>`;
-      };
+      const counterHtml = (staffName, label, cat, value) => `
+        <div style="display:inline-flex;align-items:center;gap:3px;">
+          <span style="font-size:12px;color:var(--gray-600);min-width:48px;">${label}</span>
+          <button type="button" class="manual-counter-btn" data-manual-key="${escapeHtml(staffName)}" data-manual-cat="${cat}" data-manual-delta="-1" style="width:22px;height:22px;font-size:12px;">−</button>
+          <span style="min-width:24px;text-align:center;font-size:13px;font-weight:600;">${value}</span>
+          <button type="button" class="manual-counter-btn" data-manual-key="${escapeHtml(staffName)}" data-manual-cat="${cat}" data-manual-delta="1" style="width:22px;height:22px;font-size:12px;">+</button>
+        </div>`;
 
-      list.innerHTML = [
-        renderItem("店舗合計", "store", totalCurrent, storeTarget, false),
-        ...rows.map((r) => renderItem(r.name, r.name, r.current, r.target, true))
-      ].join("");
+      const opStyle = "font-size:14px;font-weight:600;color:var(--gray-400);margin:0 2px;";
+
+      const storeStaffDetail = rows.map((r) => {
+        const sNet = r.new + r.purchase - r.cancel;
+        return `<span style="white-space:nowrap;">${escapeHtml(r.name)} ${sNet}件</span>`;
+      }).join('<span style="margin:0 4px;color:var(--gray-300);">|</span>');
+
+      const storeHtml = `<div class="goal-item">
+        <div class="goal-item-header"><span>店舗合計</span><span>${totalCurrent}件${storeTarget ? ` / 目標${storeTarget}件` : ""}</span></div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;font-size:12px;color:var(--gray-600);align-items:center;">
+          <span>新規 ${totalNew}件</span>
+          <span style="${opStyle}">＋</span>
+          <span>直接買取 ${totalPurchase}件</span>
+          <span style="${opStyle}">−</span>
+          <span style="color:#b91c1c;">中止 ${totalCancel}件</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:0;margin-top:6px;font-size:11px;color:var(--gray-500);align-items:center;">
+          ${storeStaffDetail}
+        </div>
+      </div>`;
+
+      list.innerHTML = storeHtml + rows.map((r) => {
+        const net = r.new + r.purchase - r.cancel + r.carryIn;
+        const statusText = r.target ? `${net}件 / 目標${r.target}件` : `${net}件`;
+        return `<div class="goal-item">
+          <div class="goal-item-header"><span>${escapeHtml(r.name)}</span><span>${statusText}</span></div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;align-items:center;">
+            ${counterHtml(r.name, "新規", "new", r.new)}
+            <span style="${opStyle}">＋</span>
+            ${counterHtml(r.name, "直接買取", "purchase", r.purchase)}
+            <span style="${opStyle}">−</span>
+            ${counterHtml(r.name, "中止", "cancel", r.cancel)}
+            <span class="manual-save-status"></span>
+          </div>
+        </div>`;
+      }).join("");
     }
 
     function renderGoalProgressHistory() {

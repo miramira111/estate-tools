@@ -387,21 +387,25 @@ def normalize_sales(rec):
         return cleaned
     staff = {}
     for name, val in (rec.get("staff") or {}).items():
-        try:
-            staff[name] = max(0, float(val))
-        except (TypeError, ValueError):
-            continue
+        if isinstance(val, dict):
+            entry = {}
+            for cat in ("new", "purchase", "cancel"):
+                try:
+                    entry[cat] = max(0, float(val.get(cat, 0) or 0))
+                except (TypeError, ValueError):
+                    entry[cat] = 0
+            staff[name] = entry
+        else:
+            try:
+                staff[name] = {"new": max(0, float(val)), "purchase": 0, "cancel": 0}
+            except (TypeError, ValueError):
+                continue
     cleaned["staff"] = staff
-    try:
-        store_val = rec.get("store")
-        store_num = float(store_val)
-        if store_num < 0:
-            store_num = 0.0
-        cleaned["store"] = store_num
-    except (TypeError, ValueError):
-        cleaned["store"] = sum(staff.values())
-    if cleaned["store"] == 0 and staff:
-        cleaned["store"] = sum(staff.values())
+    total = sum(
+        s.get("new", 0) + s.get("purchase", 0) - s.get("cancel", 0)
+        for s in staff.values()
+    )
+    cleaned["store"] = max(0, total)
     return cleaned
 
 
