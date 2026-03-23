@@ -4223,17 +4223,22 @@
       }).sort((a, b) => {
         const key = state.sort.key;
         const dir = state.sort.dir === "asc" ? 1 : -1;
-        
+
         // 媒介No.の場合は特別処理（年-月-連番でソート）
         if (key === "id") {
           return parseContractIdForSort(a.id, b.id) * dir;
         }
-        
+
+        let cmp = 0;
         const va = a[key] || "";
         const vb = b[key] || "";
-        if (key === "price") return (Number(va) - Number(vb)) * dir;
-        if (key.toLowerCase().includes("date")) return (new Date(va) - new Date(vb)) * dir;
-        return String(va).localeCompare(String(vb), "ja") * dir;
+        if (key === "price") cmp = (Number(va) - Number(vb)) * dir;
+        else if (key.toLowerCase().includes("date")) cmp = (new Date(va) - new Date(vb)) * dir;
+        else cmp = String(va).localeCompare(String(vb), "ja") * dir;
+
+        // 同値の場合はIDの昇順でタイブレーク
+        if (cmp === 0) cmp = parseContractIdForSort(a.id, b.id);
+        return cmp;
       });
     }
     
