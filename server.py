@@ -472,7 +472,7 @@ def db_row_to_contract(row):
         "レインズ変更済み": bool(row["reins_changed"]),
         "レインズ満了日": format_date(row["reins_expire_date"]),
         "レインズ登録フラグ": bool(row["reins_registered"]),
-        "中止理由": row["cancel_reason"],
+        "中止理由": json.loads(row["cancel_reason"]) if row["cancel_reason"] else None,
         "作成日時": format_datetime(row["created_at"]),
         "価格推移": row["price_history"] or [],
         "備考": row["notes"] or "",
