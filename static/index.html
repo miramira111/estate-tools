@@ -333,11 +333,12 @@
     .manual-counter-controls { display: flex; align-items: center; gap: 8px; }
     .manual-counter-value { min-width: 44px; text-align: center; font-weight: 700; color: var(--gray-900); }
     .manual-counter-btn {
-      width: 26px;
-      height: 26px;
+      width: 36px;
+      height: 36px;
       border: 1px solid var(--gray-300);
       background: #fff;
       color: var(--gray-800);
+      font-family: Arial, Helvetica, sans-serif;
       border-radius: 6px;
       cursor: pointer;
       font-size: 16px;
@@ -345,6 +346,7 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      padding: 0;
     }
     .manual-counter-btn:hover { background: var(--gray-100); }
     .manual-save-status { font-size: 11px; margin-left: 8px; transition: opacity 0.3s; }
@@ -1201,8 +1203,8 @@
               <table class="goal-settings-table">
                 <thead>
                   <tr>
-                    <th style="min-width:160px;">区分</th>
-                    <th>達成件数（手動）</th>
+                    <th style="min-width:100px;">担当</th>
+                    <th>新規 / 直接買取 / 中止</th>
                   </tr>
                 </thead>
                 <tbody id="goalSalesBody"></tbody>
@@ -2765,18 +2767,17 @@
     }
 
     function getManualSalesRows() {
-      const sales = state.sales || DEFAULT_SALES_STATE;
+      const sales = normalizeSalesState(state.sales);
       const names = new Set();
       (state.masters["担当"] || []).forEach((n) => names.add(n));
       (state.summary || []).forEach((s) => names.add(s["担当"]));
       Object.keys((state.goalBase?.staffTargets) || {}).forEach((n) => names.add(n));
       Object.keys((sales.staff || {})).forEach((n) => names.add(n));
       const sortedNames = getSortedStaffNames(names);
-      const rows = [{ label: "店舗合計", key: "store", value: Number(sales.store || 0) }];
+      const rows = [];
       sortedNames.forEach((name) => {
-        const s = (sales.staff || {})[name];
-        const net = (s && typeof s === "object") ? (s.new || 0) + (s.purchase || 0) - (s.cancel || 0) : Number(s || 0);
-        rows.push({ label: name, key: name, value: Math.max(0, net) });
+        const s = (sales.staff || {})[name] || { new: 0, purchase: 0, cancel: 0 };
+        rows.push({ label: name, key: name, new: s.new || 0, purchase: s.purchase || 0, cancel: s.cancel || 0 });
       });
       return rows;
     }
@@ -3366,36 +3367,6 @@
       return rows;
     }
 
-    function buildManualGoalCurrentRows(staffTargets = {}, includeSet = new Set()) {
-      const sales = state.sales || DEFAULT_SALES_STATE;
-      const staffSales = sales.staff || {};
-      const carryByStaff = (state.goalCarryOver?.staffCarryIn && Object.keys(state.goalCarryOver.staffCarryIn).length)
-        ? state.goalCarryOver.staffCarryIn
-        : (state.goalCarryOver?.staffAdjustments || {});
-      const names = new Set();
-      (state.masters["担当"] || []).forEach((n) => names.add(n));
-      state.summary.forEach((s) => names.add(s["担当"]));
-      Object.keys(staffTargets).forEach((n) => names.add(n));
-      Object.keys(staffSales).forEach((n) => names.add(n));
-      const filteredNames = includeSet.size > 0 ? Array.from(includeSet) : Array.from(names);
-
-      const orderMap = new Map((state.staffOrder || []).map((n, i) => [n, i]));
-      filteredNames.sort((a, b) => {
-        const ai = orderMap.has(a) ? orderMap.get(a) : 9999;
-        const bi = orderMap.has(b) ? orderMap.get(b) : 9999;
-        if (ai !== bi) return ai - bi;
-        return a.localeCompare(b, "ja");
-      });
-
-      return filteredNames.map((name) => ({
-        name,
-        actual: Number(staffSales[name] || 0),
-        carryIn: Number(carryByStaff[name] || 0),
-        current: Number(staffSales[name] || 0) + Number(carryByStaff[name] || 0),
-        target: Number(staffTargets[name]) || 0,
-      }));
-    }
-
     function buildGoalRows(staffTargets = {}, includeSet = new Set()) {
       const sales = normalizeSalesState(state.sales);
       const staffSales = sales.staff || {};
@@ -3450,18 +3421,14 @@
       ].join("");
 
       const counterHtml = (staffName, label, cat, value) => {
-        const isCancel = cat === "cancel";
-        const delta = isCancel ? -1 : 1;
-        const btnLabel = isCancel ? "−" : "+";
         return `
-        <div style="display:inline-flex;align-items:center;gap:3px;">
+        <div style="display:inline-flex;align-items:center;gap:2px;">
           <span style="font-size:12px;color:var(--gray-600);min-width:48px;">${label}</span>
+          <button type="button" class="manual-counter-btn" data-manual-key="${escapeHtml(staffName)}" data-manual-cat="${cat}" data-manual-delta="-1">-</button>
           <span style="min-width:24px;text-align:center;font-size:13px;font-weight:600;">${value}</span>
-          <button type="button" class="manual-counter-btn" data-manual-key="${escapeHtml(staffName)}" data-manual-cat="${cat}" data-manual-delta="${delta}" style="width:22px;height:22px;font-size:12px;">${btnLabel}</button>
+          <button type="button" class="manual-counter-btn" data-manual-key="${escapeHtml(staffName)}" data-manual-cat="${cat}" data-manual-delta="1">+</button>
         </div>`;
       };
-
-      const opStyle = "font-size:14px;font-weight:600;color:var(--gray-400);margin:0 2px;";
 
       const storeStaffDetail = rows.map((r) => {
         const sNet = r.new + r.purchase - r.cancel;
@@ -3603,13 +3570,20 @@
       const salesBody = el("goalSalesBody");
       if (manualWrap && salesBody) {
         const salesRows = getManualSalesRows();
+        const settingsCounterHtml = (staffName, label, cat, value) => `
+          <div style="display:inline-flex;align-items:center;gap:2px;">
+            <span style="font-size:12px;color:var(--gray-600);min-width:48px;">${label}</span>
+            <button type="button" class="manual-counter-btn" data-manual-key="${escapeHtml(staffName)}" data-manual-cat="${cat}" data-manual-delta="-1" aria-label="${escapeHtml(staffName)}の${label}を1減らす">-</button>
+            <span style="min-width:24px;text-align:center;font-size:13px;font-weight:600;">${value}</span>
+            <button type="button" class="manual-counter-btn" data-manual-key="${escapeHtml(staffName)}" data-manual-cat="${cat}" data-manual-delta="1" aria-label="${escapeHtml(staffName)}の${label}を1増やす">+</button>
+          </div>`;
         salesBody.innerHTML = salesRows.map((r) => `<tr>
             <td>${escapeHtml(r.label)}</td>
             <td>
-              <div class="manual-counter-controls">
-                <button type="button" class="manual-counter-btn" data-manual-key="${escapeHtml(r.key)}" data-manual-delta="-1" aria-label="${escapeHtml(r.label)}を1減らす">-</button>
-                <span class="manual-counter-value">${r.value}</span>
-                <button type="button" class="manual-counter-btn" data-manual-key="${escapeHtml(r.key)}" data-manual-delta="1" aria-label="${escapeHtml(r.label)}を1増やす">+</button>
+              <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">
+                ${settingsCounterHtml(r.key, "新規", "new", r.new)}
+                ${settingsCounterHtml(r.key, "直接買取", "purchase", r.purchase)}
+                ${settingsCounterHtml(r.key, "中止", "cancel", r.cancel)}
                 <span class="manual-save-status"></span>
               </div>
             </td>
