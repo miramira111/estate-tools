@@ -294,7 +294,7 @@
     .chart-container { height: 180px; }
     .staff-monthly-section { margin-top: 16px; border-top: 1px solid var(--gray-200); padding-top: 12px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
     .staff-monthly-block { min-width: 0; }
-    .staff-monthly-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .staff-monthly-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11px; }
     .staff-monthly-table th,
     .staff-monthly-table td { padding: 2px 3px; text-align: center; border-bottom: 1px solid var(--gray-100); }
     .staff-monthly-table th { color: var(--gray-500); font-weight: 600; font-size: 10px; }
@@ -3286,6 +3286,7 @@
         ? state.staffOrder
         : state.summary.map((s) => s["担当"]);
       if (staffNames.length === 0) { section.innerHTML = ""; return; }
+      section.style.gridTemplateColumns = getStaffMonthlySectionColumns(staffNames.length, isMobileView());
 
       const goalsData = state.staffMonthlyGoals || {};
 
@@ -3307,6 +3308,12 @@
           </table>
         </div>`;
       }).join("");
+    }
+
+    function getStaffMonthlySectionColumns(staffCount, mobileView) {
+      if (mobileView) return "repeat(2, minmax(0, 1fr))";
+      const safeStaffCount = Math.max(1, Number(staffCount) || 1);
+      return `repeat(${safeStaffCount}, minmax(0, 1fr))`;
     }
 
     function buildAutoGoalCurrentRows(staffTargets = {}, includeSet = new Set()) {
