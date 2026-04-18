@@ -28,7 +28,7 @@ CONFIG_PATH = os.path.join(BASE_DIR, "config.env")
 
 LOCK_DURATION_MINUTES = 2
 DEFAULT_GOAL = {"storeTarget": 0, "staffTargets": {}, "includeStaff": []}
-STAFF_ORDER = ["小俣", "平石", "北口", "尾野"]
+STAFF_ORDER = ["小俣", "平石", "北口", "尾野", "泉"]
 CLOSED_STATUSES = ("成約", "中止", "買取", "他決")
 
 
