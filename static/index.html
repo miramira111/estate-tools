@@ -292,7 +292,7 @@
     .legend-color.senin { background: #10b981; }
     .legend-color.ippan { background: #f59e0b; }
     .chart-container { height: 180px; }
-    .staff-monthly-section { margin-top: 16px; border-top: 1px solid var(--gray-200); padding-top: 12px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .staff-monthly-section { margin-top: 16px; border-top: 1px solid var(--gray-200); padding-top: 12px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
     .staff-monthly-block { min-width: 0; }
     .staff-monthly-table { width: 100%; border-collapse: collapse; font-size: 11px; }
     .staff-monthly-table th,
@@ -3292,19 +3292,16 @@
       section.innerHTML = `<div style="grid-column:1/-1;font-size:11px;color:var(--gray-500);font-weight:600;margin-bottom:2px;">${prevYear}年${prevMonth}月末時点</div>` +
         staffNames.map((name) => {
         const staffData = goalsData[name] || {};
-        const entry = staffData[String(prevMonth)] || { actual: 0, target: 0 };
-        const diff = entry.actual - entry.target;
-        const diffClass = diff > 0 ? "diff-positive" : diff < 0 ? "diff-negative" : "diff-zero";
-        const diffText = diff > 0 ? `+${diff}件` : `${diff}件`;
+        const entry = getStaffMonthlySummaryEntry(staffData, prevMonth);
         return `<div class="staff-monthly-block">
           <table class="staff-monthly-table">
             <thead><tr><th>月</th><th>実績</th><th>目標</th><th>過不足</th></tr></thead>
             <tbody>
               <tr>
-                <td>${prevMonth}月</td>
+                <td>${entry.label}</td>
                 <td>${entry.actual}</td>
                 <td>${entry.target}</td>
-                <td class="${diffClass}">${diffText}</td>
+                <td class="${entry.diffClass}">${entry.diffText}</td>
               </tr>
             </tbody>
           </table>
@@ -3761,6 +3758,20 @@
         actualTotal,
         targetTotal,
         diff: actualTotal - targetTotal,
+      };
+    }
+
+    function getStaffMonthlySummaryEntry(staffData, maxMonth, calcFn = calculateStaffGoalTotals) {
+      const totals = calcFn(staffData, maxMonth);
+      const diffClass = totals.diff > 0 ? "diff-positive" : totals.diff < 0 ? "diff-negative" : "diff-zero";
+      const diffText = totals.diff > 0 ? `+${totals.diff}件` : `${totals.diff}件`;
+      return {
+        label: "累計",
+        actual: totals.actualTotal,
+        target: totals.targetTotal,
+        diff: totals.diff,
+        diffClass,
+        diffText,
       };
     }
 
