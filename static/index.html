@@ -333,12 +333,11 @@
     .manual-counter-controls { display: flex; align-items: center; gap: 8px; }
     .manual-counter-value { min-width: 44px; text-align: center; font-weight: 700; color: var(--gray-900); }
     .manual-counter-btn {
-      width: 36px;
-      height: 36px;
+      width: 26px;
+      height: 26px;
       border: 1px solid var(--gray-300);
       background: #fff;
       color: var(--gray-800);
-      font-family: Arial, Helvetica, sans-serif;
       border-radius: 6px;
       cursor: pointer;
       font-size: 16px;
@@ -346,7 +345,6 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 0;
     }
     .manual-counter-btn:hover { background: var(--gray-100); }
     .manual-save-status { font-size: 11px; margin-left: 8px; transition: opacity 0.3s; }
@@ -1203,8 +1201,8 @@
               <table class="goal-settings-table">
                 <thead>
                   <tr>
-                    <th style="min-width:100px;">担当</th>
-                    <th>新規 / 直接買取 / 中止</th>
+                    <th style="min-width:160px;">区分</th>
+                    <th>達成件数（手動）</th>
                   </tr>
                 </thead>
                 <tbody id="goalSalesBody"></tbody>
@@ -2085,6 +2083,7 @@
           <!-- 右: 実績・目標入力 -->
           <div>
             <h4 style="margin:0 0 6px;font-size:12px;font-weight:700;color:var(--gray-600);">実績・目標</h4>
+            <div id="staffModalGoalsSummary" style="display:flex;gap:6px;flex-wrap:wrap;margin:0 0 8px;"></div>
             <div class="table-container" style="max-height: 360px; overflow-y: auto;">
               <table class="staff-monthly-table">
                 <thead><tr><th>月</th><th>実績</th><th>目標</th><th>過不足</th></tr></thead>
@@ -2767,17 +2766,18 @@
     }
 
     function getManualSalesRows() {
-      const sales = normalizeSalesState(state.sales);
+      const sales = state.sales || DEFAULT_SALES_STATE;
       const names = new Set();
       (state.masters["担当"] || []).forEach((n) => names.add(n));
       (state.summary || []).forEach((s) => names.add(s["担当"]));
       Object.keys((state.goalBase?.staffTargets) || {}).forEach((n) => names.add(n));
       Object.keys((sales.staff || {})).forEach((n) => names.add(n));
       const sortedNames = getSortedStaffNames(names);
-      const rows = [];
+      const rows = [{ label: "店舗合計", key: "store", value: Number(sales.store || 0) }];
       sortedNames.forEach((name) => {
-        const s = (sales.staff || {})[name] || { new: 0, purchase: 0, cancel: 0 };
-        rows.push({ label: name, key: name, new: s.new || 0, purchase: s.purchase || 0, cancel: s.cancel || 0 });
+        const s = (sales.staff || {})[name];
+        const net = (s && typeof s === "object") ? (s.new || 0) + (s.purchase || 0) - (s.cancel || 0) : Number(s || 0);
+        rows.push({ label: name, key: name, value: Math.max(0, net) });
       });
       return rows;
     }
@@ -3367,6 +3367,36 @@
       return rows;
     }
 
+    function buildManualGoalCurrentRows(staffTargets = {}, includeSet = new Set()) {
+      const sales = state.sales || DEFAULT_SALES_STATE;
+      const staffSales = sales.staff || {};
+      const carryByStaff = (state.goalCarryOver?.staffCarryIn && Object.keys(state.goalCarryOver.staffCarryIn).length)
+        ? state.goalCarryOver.staffCarryIn
+        : (state.goalCarryOver?.staffAdjustments || {});
+      const names = new Set();
+      (state.masters["担当"] || []).forEach((n) => names.add(n));
+      state.summary.forEach((s) => names.add(s["担当"]));
+      Object.keys(staffTargets).forEach((n) => names.add(n));
+      Object.keys(staffSales).forEach((n) => names.add(n));
+      const filteredNames = includeSet.size > 0 ? Array.from(includeSet) : Array.from(names);
+
+      const orderMap = new Map((state.staffOrder || []).map((n, i) => [n, i]));
+      filteredNames.sort((a, b) => {
+        const ai = orderMap.has(a) ? orderMap.get(a) : 9999;
+        const bi = orderMap.has(b) ? orderMap.get(b) : 9999;
+        if (ai !== bi) return ai - bi;
+        return a.localeCompare(b, "ja");
+      });
+
+      return filteredNames.map((name) => ({
+        name,
+        actual: Number(staffSales[name] || 0),
+        carryIn: Number(carryByStaff[name] || 0),
+        current: Number(staffSales[name] || 0) + Number(carryByStaff[name] || 0),
+        target: Number(staffTargets[name]) || 0,
+      }));
+    }
+
     function buildGoalRows(staffTargets = {}, includeSet = new Set()) {
       const sales = normalizeSalesState(state.sales);
       const staffSales = sales.staff || {};
@@ -3421,14 +3451,18 @@
       ].join("");
 
       const counterHtml = (staffName, label, cat, value) => {
+        const isCancel = cat === "cancel";
+        const delta = isCancel ? -1 : 1;
+        const btnLabel = isCancel ? "−" : "+";
         return `
-        <div style="display:inline-flex;align-items:center;gap:2px;">
+        <div style="display:inline-flex;align-items:center;gap:3px;">
           <span style="font-size:12px;color:var(--gray-600);min-width:48px;">${label}</span>
-          <button type="button" class="manual-counter-btn" data-manual-key="${escapeHtml(staffName)}" data-manual-cat="${cat}" data-manual-delta="-1">-</button>
           <span style="min-width:24px;text-align:center;font-size:13px;font-weight:600;">${value}</span>
-          <button type="button" class="manual-counter-btn" data-manual-key="${escapeHtml(staffName)}" data-manual-cat="${cat}" data-manual-delta="1">+</button>
+          <button type="button" class="manual-counter-btn" data-manual-key="${escapeHtml(staffName)}" data-manual-cat="${cat}" data-manual-delta="${delta}" style="width:22px;height:22px;font-size:12px;">${btnLabel}</button>
         </div>`;
       };
+
+      const opStyle = "font-size:14px;font-weight:600;color:var(--gray-400);margin:0 2px;";
 
       const storeStaffDetail = rows.map((r) => {
         const sNet = r.new + r.purchase - r.cancel;
@@ -3570,20 +3604,13 @@
       const salesBody = el("goalSalesBody");
       if (manualWrap && salesBody) {
         const salesRows = getManualSalesRows();
-        const settingsCounterHtml = (staffName, label, cat, value) => `
-          <div style="display:inline-flex;align-items:center;gap:2px;">
-            <span style="font-size:12px;color:var(--gray-600);min-width:48px;">${label}</span>
-            <button type="button" class="manual-counter-btn" data-manual-key="${escapeHtml(staffName)}" data-manual-cat="${cat}" data-manual-delta="-1" aria-label="${escapeHtml(staffName)}の${label}を1減らす">-</button>
-            <span style="min-width:24px;text-align:center;font-size:13px;font-weight:600;">${value}</span>
-            <button type="button" class="manual-counter-btn" data-manual-key="${escapeHtml(staffName)}" data-manual-cat="${cat}" data-manual-delta="1" aria-label="${escapeHtml(staffName)}の${label}を1増やす">+</button>
-          </div>`;
         salesBody.innerHTML = salesRows.map((r) => `<tr>
             <td>${escapeHtml(r.label)}</td>
             <td>
-              <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;">
-                ${settingsCounterHtml(r.key, "新規", "new", r.new)}
-                ${settingsCounterHtml(r.key, "直接買取", "purchase", r.purchase)}
-                ${settingsCounterHtml(r.key, "中止", "cancel", r.cancel)}
+              <div class="manual-counter-controls">
+                <button type="button" class="manual-counter-btn" data-manual-key="${escapeHtml(r.key)}" data-manual-delta="-1" aria-label="${escapeHtml(r.label)}を1減らす">-</button>
+                <span class="manual-counter-value">${r.value}</span>
+                <button type="button" class="manual-counter-btn" data-manual-key="${escapeHtml(r.key)}" data-manual-delta="1" aria-label="${escapeHtml(r.label)}を1増やす">+</button>
                 <span class="manual-save-status"></span>
               </div>
             </td>
@@ -3721,12 +3748,41 @@
       body.innerHTML = rows.join("");
     }
 
+    function calculateStaffGoalTotals(staffData, maxMonth) {
+      const safeMaxMonth = Math.max(0, Number(maxMonth) || 0);
+      let actualTotal = 0;
+      let targetTotal = 0;
+      for (let m = 1; m <= safeMaxMonth; m++) {
+        const entry = staffData[String(m)] || {};
+        actualTotal += Number(entry.actual) || 0;
+        targetTotal += Number(entry.target) || 0;
+      }
+      return {
+        actualTotal,
+        targetTotal,
+        diff: actualTotal - targetTotal,
+      };
+    }
+
+    function renderStaffModalGoalsSummary(totals) {
+      const summary = el("staffModalGoalsSummary"); if (!summary) return;
+      const diffClass = totals.diff > 0 ? "diff-positive" : totals.diff < 0 ? "diff-negative" : "diff-zero";
+      const diffText = totals.diff > 0 ? `+${totals.diff}件` : `${totals.diff}件`;
+      summary.innerHTML = `
+        <span class="goal-pill">実績合計 ${totals.actualTotal}件</span>
+        <span class="goal-pill">目標合計 ${totals.targetTotal}件</span>
+        <span class="goal-pill ${diffClass}">過不足合計 ${diffText}</span>
+      `;
+    }
+
     function renderStaffModalGoals(staffName) {
       const goalsBody = el("staffModalGoalsBody"); if (!goalsBody) return;
       const now = new Date();
       const currentMonth = now.getMonth() + 1;
       const goalsData = state.staffMonthlyGoals || {};
       const staffData = goalsData[staffName] || {};
+
+      renderStaffModalGoalsSummary(calculateStaffGoalTotals(staffData, currentMonth));
 
       const rows = [];
       for (let m = 1; m <= currentMonth; m++) {
@@ -3758,6 +3814,14 @@
             diffTd.className = d > 0 ? "diff-positive" : d < 0 ? "diff-negative" : "diff-zero";
             diffTd.textContent = d > 0 ? `+${d}件` : `${d}件`;
           }
+          const liveStaffData = {};
+          for (let month = 1; month <= currentMonth; month++) {
+            liveStaffData[String(month)] = {
+              actual: Number(goalsBody.querySelector(`input[data-month="${month}"][data-field="actual"]`)?.value) || 0,
+              target: Number(goalsBody.querySelector(`input[data-month="${month}"][data-field="target"]`)?.value) || 0,
+            };
+          }
+          renderStaffModalGoalsSummary(calculateStaffGoalTotals(liveStaffData, currentMonth));
         });
       });
 
