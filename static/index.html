@@ -219,6 +219,60 @@
     .notification-modal-item.deadline-warning { background: #fffbeb; border-left: 4px solid var(--warning-color); }
     .notification-modal-item.status { background: #eff6ff; border-left: 4px solid var(--info-color); }
     .notification-modal-item.price { background: #ecfdf5; border-left: 4px solid var(--success-color); }
+    .deadline-view-summary { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+    .deadline-summary-card { border: 1px solid var(--gray-200); border-radius: 8px; padding: 10px; background: #fff; min-width: 0; }
+    .deadline-summary-card.danger { border-color: #fecaca; background: #fef2f2; }
+    .deadline-summary-card.warning { border-color: #fde68a; background: #fffbeb; }
+    .deadline-summary-card-label { display: block; font-size: 11px; color: var(--gray-500); font-weight: 600; margin-bottom: 4px; }
+    .deadline-summary-card-value { display: block; font-size: 18px; color: var(--gray-900); font-weight: 700; line-height: 1.1; }
+    .deadline-view-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+    .deadline-view-mode { display: inline-flex; border: 1px solid var(--gray-300); border-radius: 8px; overflow: hidden; background: #fff; }
+    .deadline-view-mode button { border: 0; background: #fff; color: var(--gray-700); padding: 7px 11px; font-size: 12px; cursor: pointer; border-right: 1px solid var(--gray-300); }
+    .deadline-view-mode button:last-child { border-right: 0; }
+    .deadline-view-mode button.active { background: var(--primary-color); color: #fff; }
+    .deadline-calendar-nav { display: inline-flex; align-items: center; gap: 8px; }
+    .deadline-calendar-title { min-width: 120px; text-align: center; font-size: 14px; font-weight: 700; color: var(--gray-900); }
+    .deadline-calendar { border: 1px solid var(--gray-200); border-radius: 8px; overflow: hidden; background: #fff; }
+    .deadline-calendar-weekdays, .deadline-calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+    .deadline-calendar-weekday { padding: 7px 4px; text-align: center; background: var(--gray-100); color: var(--gray-500); font-size: 11px; font-weight: 700; border-right: 1px solid var(--gray-200); }
+    .deadline-calendar-weekday:last-child { border-right: 0; }
+    .deadline-calendar-day { min-height: 104px; padding: 7px; border-top: 1px solid var(--gray-200); border-right: 1px solid var(--gray-200); background: #fff; display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+    .deadline-calendar-day:nth-child(7n) { border-right: 0; }
+    .deadline-calendar-day.outside { background: var(--gray-50); color: var(--gray-400); }
+    .deadline-calendar-day.today { box-shadow: inset 0 0 0 2px var(--primary-color); }
+    .deadline-calendar-date { display: flex; justify-content: space-between; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; color: var(--gray-700); }
+    .deadline-calendar-count { font-size: 10px; color: var(--gray-500); font-weight: 600; }
+    .deadline-calendar-chip { width: 100%; border: 1px solid var(--gray-200); border-left: 4px solid var(--gray-300); border-radius: 6px; background: #fff; padding: 4px 5px; font-size: 11px; color: var(--gray-800); line-height: 1.25; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px; align-items: center; }
+    .deadline-calendar-chip:hover { background: var(--gray-50); }
+    .deadline-calendar-chip-main { min-width: 0; border: 0; background: transparent; padding: 0; text-align: left; cursor: pointer; color: inherit; font: inherit; }
+    .deadline-calendar-chip-edit { border: 1px solid var(--gray-300); background: #fff; color: var(--gray-700); border-radius: 4px; padding: 2px 4px; font-size: 10px; cursor: pointer; white-space: nowrap; }
+    .deadline-calendar-chip.danger { border-left-color: #dc2626; background: #fef2f2; }
+    .deadline-calendar-chip.urgent { border-left-color: #f59e0b; background: #fffbeb; }
+    .deadline-calendar-chip.warning { border-left-color: #fcd34d; background: #fffbeb; }
+    .deadline-calendar-chip.safe { border-left-color: #10b981; background: #ecfdf5; }
+    .deadline-calendar-chip-id { display: block; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .deadline-calendar-chip-meta { display: block; color: var(--gray-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .deadline-calendar-more { font-size: 11px; color: var(--primary-color); font-weight: 700; }
+    .deadline-view-board { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; align-items: start; }
+    .deadline-view-column { border: 1px solid var(--gray-200); border-radius: 8px; background: var(--gray-50); min-width: 0; overflow: hidden; }
+    .deadline-view-column-header { padding: 9px 10px; border-bottom: 1px solid var(--gray-200); background: #fff; font-size: 12px; font-weight: 700; color: var(--gray-700); display: flex; justify-content: space-between; gap: 8px; }
+    .deadline-view-column-body { padding: 8px; display: grid; gap: 8px; max-height: 430px; overflow-y: auto; }
+    .deadline-view-card { background: #fff; border: 1px solid var(--gray-200); border-left: 4px solid var(--gray-300); border-radius: 8px; padding: 9px; display: grid; gap: 6px; min-width: 0; }
+    .deadline-view-card.danger { border-left-color: #dc2626; }
+    .deadline-view-card.urgent { border-left-color: #f59e0b; }
+    .deadline-view-card.warning { border-left-color: #fcd34d; }
+    .deadline-view-card.safe { border-left-color: #10b981; }
+    .deadline-view-card.danger .badge { background: #dc2626; color: #fff; }
+    .deadline-view-card.urgent .badge { background: #f59e0b; color: #fff; }
+    .deadline-view-card.warning .badge { background: #fcd34d; color: #92400e; }
+    .deadline-view-card.safe .badge { background: #d1fae5; color: #047857; }
+    .deadline-view-card:not(.danger):not(.urgent):not(.warning):not(.safe) .badge { background: var(--gray-200); color: var(--gray-700); }
+    .deadline-view-card-id { font-weight: 700; font-size: 13px; color: var(--gray-900); }
+    .deadline-view-card-meta { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; font-size: 11px; color: var(--gray-500); }
+    .deadline-view-card-address { font-size: 12px; color: var(--gray-700); line-height: 1.4; white-space: normal; word-break: break-word; }
+    .deadline-view-card-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+    .deadline-view-card-actions .btn { padding: 4px 8px; font-size: 11px; }
+    .deadline-view-empty { padding: 12px 8px; color: var(--gray-500); font-size: 12px; text-align: center; }
     
     /* ユーザードロップダウン */
     .user-wrapper { position: relative; }
@@ -368,6 +422,13 @@
       border-color: var(--primary-color);
       color: #fff;
     }
+    .staff-trend-analysis { display: grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 14px; }
+    .staff-trend-summary { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+    .staff-trend-pill { border: 1px solid var(--gray-200); border-radius: 8px; padding: 8px; background: #f9fafb; min-width: 0; }
+    .staff-trend-pill-label { display: block; font-size: 11px; color: var(--gray-500); font-weight: 600; margin-bottom: 3px; }
+    .staff-trend-pill-value { display: block; font-size: 16px; color: var(--gray-900); font-weight: 700; line-height: 1.1; }
+    .staff-trend-chart-wrap { height: 220px; border: 1px solid var(--gray-200); border-radius: 8px; padding: 10px; background: #fff; }
+    .staff-trend-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 
     /* Alert */
     .alert-banner { display: flex; align-items: center; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; border: 1px solid #fcd34d; background: #fffbeb; gap: 12px; }
@@ -476,6 +537,15 @@
       .filter-bar { flex-direction: column; align-items: stretch; }
       .filter-left, .filter-right { flex-wrap: wrap; }
       .search-input { min-width: 100% !important; }
+      .deadline-view-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .deadline-view-toolbar { align-items: stretch; }
+      .deadline-view-mode, .deadline-calendar-nav { width: 100%; justify-content: center; }
+      .deadline-calendar-title { flex: 1; }
+      .deadline-calendar-day { min-height: 88px; padding: 4px; gap: 3px; }
+      .deadline-calendar-chip { font-size: 10px; padding: 3px 4px; }
+      .deadline-calendar-chip-meta { display: none; }
+      .deadline-view-board { grid-template-columns: 1fr; }
+      .deadline-view-column-body { max-height: none; }
 
       /* Stats row */
       .stats-row { flex-direction: column; }
@@ -483,6 +553,10 @@
       .chart-card { min-width: 100%; }
       .chart-container { height: 150px; }
       .staff-monthly-section { grid-template-columns: repeat(2, 1fr); }
+      .staff-trend-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .staff-trend-chart-wrap { height: 260px; padding: 8px; }
+      .staff-trend-detail-grid { grid-template-columns: 1fr; }
+      .staff-trend-detail-grid .table-container { display: block !important; }
       .goal-progress-list { grid-template-columns: 1fr; }
 
       /* Table hidden on mobile, cards shown */
@@ -545,6 +619,18 @@
       color: var(--primary-color);
       border-bottom-color: var(--primary-color);
     }
+    .customer-analytics-section { display: grid; gap: 12px; }
+    .customer-analytics-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .customer-analytics-kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+    .customer-kpi-card { border: 1px solid var(--gray-200); border-radius: 8px; background: #fff; padding: 10px; min-width: 0; }
+    .customer-kpi-label { display: block; font-size: 11px; color: var(--gray-500); font-weight: 600; margin-bottom: 4px; }
+    .customer-kpi-value { display: block; font-size: 20px; line-height: 1.1; color: var(--gray-900); font-weight: 700; }
+    .customer-kpi-note { display: block; font-size: 11px; color: var(--gray-500); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .customer-analytics-charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .customer-analytics-chart-card { border: 1px solid var(--gray-200); border-radius: 8px; background: #fff; padding: 12px; min-width: 0; }
+    .customer-analytics-chart-title { margin: 0 0 8px; font-size: 13px; font-weight: 700; color: var(--gray-700); }
+    .customer-analytics-chart-wrap { height: 220px; }
+    .customer-analytics-empty { padding: 18px; text-align: center; color: var(--gray-500); font-size: 13px; border: 1px dashed var(--gray-300); border-radius: 8px; background: var(--gray-50); }
 
     .customer-status-badge {
       display: inline-block;
@@ -555,6 +641,12 @@
       white-space: nowrap;
       line-height: 1.2;
       text-align: center;
+    }
+
+    @media (max-width: 768px) {
+      .customer-analytics-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .customer-analytics-charts { grid-template-columns: 1fr; }
+      .customer-analytics-chart-wrap { height: 240px; }
     }
 
     /* 顧客テーブル行ホバー */
@@ -1346,6 +1438,36 @@
             </div>
           </div>
 
+          <!-- 顧客分析 -->
+          <div class="section-card customer-analytics-section" id="customerAnalyticsSection">
+            <div class="customer-analytics-header">
+              <div>
+                <h3 class="section-title" style="margin:0;">顧客分析</h3>
+                <p class="stats-subtitle" id="customerAnalyticsScope" style="margin:4px 0 0;">表示中の顧客データを分析します。</p>
+              </div>
+            </div>
+            <div class="customer-analytics-kpis" id="customerAnalyticsKpis"></div>
+            <div class="customer-analytics-charts" id="customerAnalyticsCharts">
+              <div class="customer-analytics-chart-card">
+                <h4 class="customer-analytics-chart-title">月別反響数</h4>
+                <div class="customer-analytics-chart-wrap"><canvas id="customerMonthlyChart"></canvas></div>
+              </div>
+              <div class="customer-analytics-chart-card">
+                <h4 class="customer-analytics-chart-title">ステータス別</h4>
+                <div class="customer-analytics-chart-wrap"><canvas id="customerStatusChart"></canvas></div>
+              </div>
+              <div class="customer-analytics-chart-card">
+                <h4 class="customer-analytics-chart-title">反響媒体別</h4>
+                <div class="customer-analytics-chart-wrap"><canvas id="customerSourceChart"></canvas></div>
+              </div>
+              <div class="customer-analytics-chart-card">
+                <h4 class="customer-analytics-chart-title">担当者別</h4>
+                <div class="customer-analytics-chart-wrap"><canvas id="customerStaffChart"></canvas></div>
+              </div>
+            </div>
+            <div class="customer-analytics-empty hidden" id="customerAnalyticsEmpty">分析できる顧客データがありません。</div>
+          </div>
+
           <!-- 顧客一覧テーブル -->
           <div class="section-card">
             <div class="customer-summary" id="customerSummary" style="margin-bottom: 12px; font-size: 13px; color: var(--gray-500);"></div>
@@ -2028,6 +2150,25 @@
     </div>
   </div>
 
+  <!-- 期限ビューモーダル -->
+  <div class="modal-backdrop hidden" id="modalDeadlineView">
+    <div class="modal" style="max-width: 1120px;">
+      <div class="modal-header">
+        <h3 class="modal-title">期限ビュー</h3>
+        <button class="modal-close" data-close="modalDeadlineView">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="deadline-view-summary" id="deadlineViewSummary"></div>
+        <div class="deadline-view-toolbar" id="deadlineViewToolbar"></div>
+        <div class="deadline-calendar" id="deadlineCalendar"></div>
+        <div class="deadline-view-board" id="deadlineViewBoard"></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" data-close="modalDeadlineView">閉じる</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 月次推移モーダル -->
   <div class="modal-backdrop hidden" id="modalMonthlyTrend">
     <div class="modal" style="max-width: 560px;">
@@ -2043,7 +2184,7 @@
             <thead>
               <tr>
                 <th>月</th>
-                <th>当月</th>
+                <th>新規</th>
                 <th>成約</th>
                 <th>買取</th>
                 <th>他決</th>
@@ -2063,14 +2204,20 @@
 
   <!-- 担当者別月次推移モーダル -->
   <div class="modal-backdrop hidden" id="modalStaffMonthlyTrend">
-    <div class="modal" style="max-width: 720px;">
+    <div class="modal" style="max-width: 920px;">
       <div class="modal-header">
         <h3 class="modal-title" id="staffMonthlyTrendTitle">月次推移</h3>
         <button class="modal-close" data-close="modalStaffMonthlyTrend">×</button>
       </div>
       <div class="modal-body">
         <div class="monthly-trend-tabs" id="staffMonthlyTrendYearTabs"></div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div class="staff-trend-analysis">
+          <div class="staff-trend-summary" id="staffTrendSummary"></div>
+          <div class="staff-trend-chart-wrap">
+            <canvas id="staffTrendChart"></canvas>
+          </div>
+        </div>
+        <div class="staff-trend-detail-grid">
           <!-- 左: 月次推移テーブル -->
           <div>
             <h4 style="margin:0 0 6px;font-size:12px;font-weight:700;color:var(--gray-600);">月次推移</h4>
@@ -2079,7 +2226,7 @@
                 <thead>
                   <tr>
                     <th>月</th>
-                    <th>当月</th>
+                    <th>新規</th>
                     <th>成約</th>
                     <th>買取</th>
                     <th>他決</th>
@@ -2350,6 +2497,9 @@
       staffMonthlyGoals: {},
       monthlyTrendYear: "",
       staffTrendYear: "",
+      deadlineViewMode: "calendar",
+      deadlineCalendarYear: 0,
+      deadlineCalendarMonth: 0,
       currentUser: null,
       loginId: null,
       filters: { staff: "", status: "", from: "", to: "", query: "", closedOnly: false },
@@ -2357,6 +2507,7 @@
       editingId: null,
       operationLoading: false,
       chart: null,
+      staffTrendChart: null,
     };
     let salesSaveQueue = Promise.resolve();
 
@@ -2395,7 +2546,7 @@
       el("logoutBtn").addEventListener("click", logout);
       el("btnNewContract").addEventListener("click", openNewContractAfterFreshLoad);
       el("btnNewPurchase").addEventListener("click", openNewPurchaseAfterFreshLoad);
-      el("btnDeadlineView").addEventListener("click", () => alert("期限カレンダーは現在の表を基に確認してください。"));
+      el("btnDeadlineView").addEventListener("click", renderDeadlineViewModal);
       el("btnShowClosed").addEventListener("click", toggleClosedView);
       el("btnMasters").addEventListener("click", openMastersModal);
       el("btnStatusColors").addEventListener("click", openStatusColorsModal);
@@ -3052,6 +3203,232 @@
         .map((c) => ({ ...c, remaining: daysUntil(c.expireDate) }))
         .filter((c) => c.remaining !== null && c.remaining <= limitDays && !["成約", "中止"].includes(c.status))
         .sort((a, b) => a.remaining - b.remaining);
+    }
+
+    function getDeadlineStatusInfo(remaining) {
+      if (remaining === null || remaining === undefined) return { key: "none", label: "期限未入力", className: "", badge: "未入力" };
+      if (remaining < 0) return { key: "expired", label: "期限切れ", className: "danger", badge: "期限切れ" };
+      if (remaining <= 7) return { key: "week", label: "7日以内", className: "urgent", badge: `あと${remaining}日` };
+      if (remaining <= 14) return { key: "twoWeeks", label: "14日以内", className: "warning", badge: `あと${remaining}日` };
+      if (remaining <= 30) return { key: "month", label: "30日以内", className: "safe", badge: `あと${remaining}日` };
+      return { key: "later", label: "31日以上", className: "", badge: `${remaining}日` };
+    }
+
+    function getDeadlineViewItems() {
+      return state.contracts
+        .map((c) => {
+          const remaining = daysUntil(c.expireDate);
+          return { ...c, remaining, deadlineInfo: getDeadlineStatusInfo(remaining) };
+        })
+        .sort((a, b) => {
+          const ar = a.remaining === null || a.remaining === undefined ? 99999 : a.remaining;
+          const br = b.remaining === null || b.remaining === undefined ? 99999 : b.remaining;
+          if (ar !== br) return ar - br;
+          return String(a.id || "").localeCompare(String(b.id || ""), "ja", { numeric: true });
+        });
+    }
+
+    function parseDateParts(dateStr) {
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr || "");
+      if (!m) return null;
+      return { year: Number(m[1]), month: Number(m[2]), day: Number(m[3]), key: `${m[1]}-${m[2]}-${m[3]}` };
+    }
+
+    function getDateKey(date) {
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    }
+
+    function ensureDeadlineCalendarMonth() {
+      const now = new Date();
+      if (!state.deadlineCalendarYear) state.deadlineCalendarYear = now.getFullYear();
+      if (!state.deadlineCalendarMonth) state.deadlineCalendarMonth = now.getMonth() + 1;
+      return { year: state.deadlineCalendarYear, month: state.deadlineCalendarMonth };
+    }
+
+    function shiftDeadlineCalendarMonth(delta) {
+      const current = ensureDeadlineCalendarMonth();
+      const next = new Date(current.year, current.month - 1 + delta, 1);
+      state.deadlineCalendarYear = next.getFullYear();
+      state.deadlineCalendarMonth = next.getMonth() + 1;
+      renderDeadlineViewModal();
+    }
+
+    function resetDeadlineCalendarMonth() {
+      const now = new Date();
+      state.deadlineCalendarYear = now.getFullYear();
+      state.deadlineCalendarMonth = now.getMonth() + 1;
+      renderDeadlineViewModal();
+    }
+
+    function renderDeadlineViewToolbar() {
+      const toolbar = el("deadlineViewToolbar"); if (!toolbar) return;
+      const current = ensureDeadlineCalendarMonth();
+      toolbar.innerHTML = `
+        <div class="deadline-view-mode" role="tablist" aria-label="期限ビュー表示切替">
+          <button type="button" class="${state.deadlineViewMode === "calendar" ? "active" : ""}" data-deadline-view-mode="calendar">カレンダー</button>
+          <button type="button" class="${state.deadlineViewMode === "board" ? "active" : ""}" data-deadline-view-mode="board">ボード</button>
+        </div>
+        <div class="deadline-calendar-nav">
+          <button type="button" class="btn btn-outline" data-deadline-calendar-nav="-1">前月</button>
+          <div class="deadline-calendar-title">${current.year}年${current.month}月</div>
+          <button type="button" class="btn btn-outline" data-deadline-calendar-nav="1">翌月</button>
+          <button type="button" class="btn btn-outline" data-deadline-calendar-today>今月</button>
+        </div>
+      `;
+      toolbar.querySelectorAll("button[data-deadline-view-mode]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          state.deadlineViewMode = btn.dataset.deadlineViewMode;
+          renderDeadlineViewModal();
+        });
+      });
+      toolbar.querySelectorAll("button[data-deadline-calendar-nav]").forEach((btn) => {
+        btn.addEventListener("click", () => shiftDeadlineCalendarMonth(Number(btn.dataset.deadlineCalendarNav) || 0));
+      });
+      toolbar.querySelector("button[data-deadline-calendar-today]")?.addEventListener("click", resetDeadlineCalendarMonth);
+    }
+
+    function renderDeadlineCalendar(items) {
+      const calendar = el("deadlineCalendar"); if (!calendar) return;
+      const current = ensureDeadlineCalendarMonth();
+      const first = new Date(current.year, current.month - 1, 1);
+      const start = new Date(first);
+      start.setDate(first.getDate() - first.getDay());
+      const todayKey = getDateKey(new Date());
+      const monthItems = new Map();
+      items.forEach((item) => {
+        const parts = parseDateParts(item.expireDate);
+        if (!parts) return;
+        if (parts.year !== current.year || parts.month !== current.month) return;
+        if (!monthItems.has(parts.key)) monthItems.set(parts.key, []);
+        monthItems.get(parts.key).push(item);
+      });
+
+      const weekdays = ["日", "月", "火", "水", "木", "金", "土"];
+      const cells = [];
+      for (let i = 0; i < 42; i++) {
+        const d = new Date(start);
+        d.setDate(start.getDate() + i);
+        const key = getDateKey(d);
+        const rows = monthItems.get(key) || [];
+        const isOutside = d.getMonth() !== current.month - 1;
+        const visibleRows = rows.slice(0, 4);
+        cells.push(`
+          <div class="deadline-calendar-day ${isOutside ? "outside" : ""} ${key === todayKey ? "today" : ""}">
+            <div class="deadline-calendar-date">
+              <span>${d.getDate()}</span>
+              ${rows.length ? `<span class="deadline-calendar-count">${rows.length}件</span>` : ""}
+            </div>
+            ${visibleRows.map((c) => `
+              <div class="deadline-calendar-chip ${c.deadlineInfo.className}">
+                <button type="button" class="deadline-calendar-chip-main" data-action="renew" data-id="${c.id}">
+                  <span class="deadline-calendar-chip-id">${c.id || "-"} ${c.staff || "-"}</span>
+                  <span class="deadline-calendar-chip-meta">${c.deadlineInfo.badge} / ${c.address || "-"}</span>
+                </button>
+                <button type="button" class="deadline-calendar-chip-edit" data-action="edit" data-id="${c.id}">編集</button>
+              </div>
+            `).join("")}
+            ${rows.length > visibleRows.length ? `<div class="deadline-calendar-more">+${rows.length - visibleRows.length}件</div>` : ""}
+          </div>
+        `);
+      }
+
+      calendar.innerHTML = `
+        <div class="deadline-calendar-weekdays">${weekdays.map((w) => `<div class="deadline-calendar-weekday">${w}</div>`).join("")}</div>
+        <div class="deadline-calendar-grid">${cells.join("")}</div>
+      `;
+      calendar.querySelectorAll("button[data-action]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          closeModal("modalDeadlineView");
+          handleRowAction(btn.dataset.action, btn.dataset.id);
+        });
+      });
+    }
+
+    function renderDeadlineViewSummary(items) {
+      const summary = el("deadlineViewSummary"); if (!summary) return;
+      const countByKey = items.reduce((acc, item) => {
+        acc[item.deadlineInfo.key] = (acc[item.deadlineInfo.key] || 0) + 1;
+        return acc;
+      }, {});
+      const configs = [
+        { key: "expired", label: "期限切れ", cls: "danger" },
+        { key: "week", label: "7日以内", cls: "danger" },
+        { key: "twoWeeks", label: "14日以内", cls: "warning" },
+        { key: "month", label: "30日以内", cls: "" },
+        { key: "later", label: "31日以上", cls: "" },
+        { key: "none", label: "未入力", cls: "" },
+      ];
+      summary.innerHTML = configs.map((cfg) => `
+        <div class="deadline-summary-card ${cfg.cls}">
+          <span class="deadline-summary-card-label">${cfg.label}</span>
+          <span class="deadline-summary-card-value">${countByKey[cfg.key] || 0}件</span>
+        </div>
+      `).join("");
+    }
+
+    function renderDeadlineViewBoard(items) {
+      const board = el("deadlineViewBoard"); if (!board) return;
+      const groups = [
+        { key: "expired", label: "期限切れ" },
+        { key: "week", label: "7日以内" },
+        { key: "twoWeeks", label: "14日以内" },
+        { key: "month", label: "30日以内" },
+        { key: "later", label: "31日以上" },
+        { key: "none", label: "未入力" },
+      ];
+      const htmlForCard = (c) => `
+        <div class="deadline-view-card ${c.deadlineInfo.className}">
+          <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start;">
+            <span class="deadline-view-card-id">${c.id || "-"}</span>
+            <span class="badge">${c.deadlineInfo.badge}</span>
+          </div>
+          <div class="deadline-view-card-meta">
+            <span>${c.staff || "-"}</span>
+            <span>${renderStatusBadge(c.status)}</span>
+            <span>${formatDateDisplay(c.expireDate)}</span>
+          </div>
+          <div class="deadline-view-card-address">${c.address || "-"}</div>
+          <div class="deadline-view-card-actions">
+            <button class="btn btn-outline" data-action="renew" data-id="${c.id}">更新</button>
+            <button class="btn btn-outline" data-action="edit" data-id="${c.id}">編集</button>
+          </div>
+        </div>
+      `;
+
+      board.innerHTML = groups.map((group) => {
+        const rows = items.filter((item) => item.deadlineInfo.key === group.key);
+        return `
+          <div class="deadline-view-column">
+            <div class="deadline-view-column-header">
+              <span>${group.label}</span>
+              <span>${rows.length}件</span>
+            </div>
+            <div class="deadline-view-column-body">
+              ${rows.length ? rows.map(htmlForCard).join("") : '<div class="deadline-view-empty">対象なし</div>'}
+            </div>
+          </div>
+        `;
+      }).join("");
+      board.querySelectorAll("button[data-action]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          closeModal("modalDeadlineView");
+          handleRowAction(btn.dataset.action, btn.dataset.id);
+        });
+      });
+    }
+
+    function renderDeadlineViewModal() {
+      const items = getDeadlineViewItems();
+      renderDeadlineViewSummary(items);
+      renderDeadlineViewToolbar();
+      const calendar = el("deadlineCalendar");
+      const board = el("deadlineViewBoard");
+      const showCalendar = state.deadlineViewMode !== "board";
+      if (calendar) calendar.style.display = showCalendar ? "block" : "none";
+      if (board) board.style.display = showCalendar ? "none" : "grid";
+      if (showCalendar) renderDeadlineCalendar(items);
+      else renderDeadlineViewBoard(items);
+      openModal("modalDeadlineView");
     }
 
     function parseMonthKey(key) {
@@ -3779,29 +4156,141 @@
       openModal("modalMonthlyTrend");
     }
 
-    function renderStaffMonthlyTrendRows(list, targetYear) {
-      const body = el("staffMonthlyTrendBody"); if (!body) return;
+    function getStaffTrendYearRows(list, targetYear) {
       const yr = Number(targetYear) || new Date().getFullYear();
       const now = new Date();
       const maxMonth = (yr === now.getFullYear()) ? now.getMonth() + 1 : 12;
-
       const dataMap = new Map();
       list.filter((m) => Number(m.year) === yr).forEach((m) => dataMap.set(m.month, m));
+
+      let carriedInventory = 0;
+      list
+        .filter((m) => Number(m.year) < yr)
+        .sort((a, b) => {
+          if (Number(a.year) !== Number(b.year)) return Number(a.year) - Number(b.year);
+          return Number(a.month) - Number(b.month);
+        })
+        .forEach((m) => { carriedInventory = Number(m.inventory) || 0; });
 
       const rows = [];
       for (let m = 1; m <= maxMonth; m++) {
         const d = dataMap.get(m);
-        rows.push(`<tr>
-          <td>${yr}年${String(m).padStart(2, "0")}月</td>
-          <td>${d ? d.add : 0}件</td>
-          <td>${d ? d.contract : 0}件</td>
-          <td>${d ? d.purchase : 0}件</td>
-          <td>${d ? d.other : 0}件</td>
-          <td>${d ? d.cancel : 0}件</td>
-          <td>${d ? d.inventory : 0}件</td>
-        </tr>`);
+        if (d) carriedInventory = Number(d.inventory) || 0;
+        rows.push({
+          year: yr,
+          month: m,
+          label: `${yr}年${String(m).padStart(2, "0")}月`,
+          add: d ? d.add : 0,
+          contract: d ? d.contract : 0,
+          purchase: d ? d.purchase : 0,
+          other: d ? d.other : 0,
+          cancel: d ? d.cancel : 0,
+          inventory: carriedInventory,
+        });
       }
-      body.innerHTML = rows.join("");
+      return rows;
+    }
+
+    function renderStaffTrendSummary(rows) {
+      const summary = el("staffTrendSummary"); if (!summary) return;
+      const totals = rows.reduce((acc, r) => {
+        acc.add += Number(r.add) || 0;
+        acc.contract += Number(r.contract) || 0;
+        acc.purchase += Number(r.purchase) || 0;
+        acc.other += Number(r.other) || 0;
+        acc.cancel += Number(r.cancel) || 0;
+        return acc;
+      }, { add: 0, contract: 0, purchase: 0, other: 0, cancel: 0 });
+      const currentInventory = rows.length ? rows[rows.length - 1].inventory : 0;
+      const closePurchaseRate = totals.add > 0 ? `${Math.round(((totals.contract + totals.purchase) / totals.add) * 100)}%` : "-";
+      const items = [
+        ["新規合計", `${totals.add}件`],
+        ["成約合計", `${totals.contract}件`],
+        ["買取合計", `${totals.purchase}件`],
+        ["他決・中止", `${totals.other + totals.cancel}件`],
+        ["現在在庫", `${currentInventory}件`],
+        ["成約+買取率", closePurchaseRate],
+      ];
+      summary.innerHTML = items.map(([label, value]) => `
+        <div class="staff-trend-pill">
+          <span class="staff-trend-pill-label">${label}</span>
+          <span class="staff-trend-pill-value">${value}</span>
+        </div>
+      `).join("");
+    }
+
+    function renderStaffTrendChart(rows) {
+      const ctx = document.getElementById("staffTrendChart");
+      if (!ctx || typeof Chart === "undefined") return;
+      const labels = rows.map((r) => `${r.month}月`);
+      const makeBar = (label, key, color) => ({
+        type: "bar",
+        label,
+        data: rows.map((r) => Number(r[key]) || 0),
+        backgroundColor: color,
+        borderRadius: 4,
+        yAxisID: "count",
+      });
+      const data = {
+        labels,
+        datasets: [
+          makeBar("新規", "add", "#3b82f6"),
+          makeBar("成約", "contract", "#10b981"),
+          makeBar("買取", "purchase", "#8b5cf6"),
+          makeBar("他決", "other", "#0ea5e9"),
+          makeBar("中止", "cancel", "#ef4444"),
+          {
+            type: "line",
+            label: "在庫",
+            data: rows.map((r) => Number(r.inventory) || 0),
+            borderColor: "#111827",
+            backgroundColor: "#111827",
+            borderWidth: 2,
+            pointRadius: 3,
+            tension: 0.25,
+            yAxisID: "inventory",
+          },
+        ],
+      };
+      const options = {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        scales: {
+          count: { position: "left", beginAtZero: true, ticks: { stepSize: 1 } },
+          inventory: { position: "right", beginAtZero: true, grid: { drawOnChartArea: false }, ticks: { stepSize: 1 } },
+        },
+        plugins: {
+          legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 11 } } },
+        },
+      };
+      if (state.staffTrendChart) {
+        state.staffTrendChart.data = data;
+        state.staffTrendChart.options = options;
+        state.staffTrendChart.update();
+        return;
+      }
+      state.staffTrendChart = new Chart(ctx, { type: "bar", data, options });
+    }
+
+    function renderStaffTrendAnalysis(list, targetYear) {
+      const rows = getStaffTrendYearRows(list, targetYear);
+      renderStaffTrendSummary(rows);
+      renderStaffTrendChart(rows);
+      return rows;
+    }
+
+    function renderStaffMonthlyTrendRows(rows) {
+      const body = el("staffMonthlyTrendBody"); if (!body) return;
+      body.innerHTML = rows.map((d) => `<tr>
+          <td>${d.label}</td>
+          <td>${d.add}件</td>
+          <td>${d.contract}件</td>
+          <td>${d.purchase}件</td>
+          <td>${d.other}件</td>
+          <td>${d.cancel}件</td>
+          <td>${d.inventory}件</td>
+        </tr>`).join("");
     }
 
     function calculateStaffGoalTotals(staffData, maxMonth) {
@@ -3954,7 +4443,8 @@
         });
       });
 
-      renderStaffMonthlyTrendRows(list, activeYear);
+      const yearRows = renderStaffTrendAnalysis(list, activeYear);
+      renderStaffMonthlyTrendRows(yearRows);
       renderStaffModalGoals(staffName);
       openModal("modalStaffMonthlyTrend");
     }
@@ -4035,12 +4525,13 @@
     function renderRegisterTable() {
       const body = el("registerBody"); if (!body) return;
       const cardList = el("registerCardList");
+      const sortedContracts = getDefaultSortedContracts(state.contracts);
 
       // Mobile cards
       if (isMobileView() && cardList) {
-        cardList.innerHTML = state.contracts.length === 0
+        cardList.innerHTML = sortedContracts.length === 0
           ? '<div style="text-align:center;padding:20px;color:var(--gray-500);">データがありません</div>'
-          : state.contracts.map(c => buildMobileCard({
+          : sortedContracts.map(c => buildMobileCard({
             id: c.id,
             headerLeft: c.id,
             headerRight: `<span class="badge type-${c.type || ""}">${c.type || "-"}</span>`,
@@ -4057,7 +4548,7 @@
       }
 
       // Desktop table
-      body.innerHTML = state.contracts.map((c) => `<tr>
+      body.innerHTML = sortedContracts.map((c) => `<tr>
             <td>${c.id}</td>
             <td>${c.staff}</td>
             <td>${c.type}</td>
@@ -4286,7 +4777,7 @@
       }
       const listBody = el("byStaffContractsBody");
       if (listBody) {
-        listBody.innerHTML = state.contracts.map((c) => `<tr>
+        listBody.innerHTML = getDefaultSortedContracts(state.contracts).map((c) => `<tr>
               <td>${c.staff}</td>
               <td>${c.id}</td>
               <td>${c.type}</td>
@@ -4312,7 +4803,7 @@
         </div>`).join("");
         // Contract list cards
         html += '<div style="font-weight:600;font-size:13px;margin:12px 0 6px;">契約一覧</div>';
-        html += state.contracts.map(c => buildMobileCard({
+        html += getDefaultSortedContracts(state.contracts).map(c => buildMobileCard({
           id: c.id,
           headerLeft: `${c.staff} - ${c.id}`,
           headerRight: renderStatusBadge(c.status),
@@ -4423,6 +4914,10 @@
       });
     }
 
+    function getDefaultSortedContracts(list) {
+      return [...(list || [])].sort(compareDefaultContractOrder);
+    }
+
     function compareDefaultContractOrder(a, b) {
       const partsA = getContractIdSortParts(a.id);
       const partsB = getContractIdSortParts(b.id);
@@ -4433,7 +4928,9 @@
       const brokerB = partsB.seq >= 100 ? 1 : 0;
       if (brokerA !== brokerB) return brokerA - brokerB;
 
-      if (partsA.seq !== partsB.seq) return partsA.seq - partsB.seq;
+      if (partsA.seq !== partsB.seq) {
+        return brokerA ? partsA.seq - partsB.seq : partsB.seq - partsA.seq;
+      }
       return String(a.id || "").localeCompare(String(b.id || ""), "ja");
     }
 
@@ -5606,7 +6103,8 @@
       noContactRules: {},
       duplicateCheckRules: {},
       sourceDeadlines: {},
-      duplicateResults: {}
+      duplicateResults: {},
+      analyticsCharts: {}
     };
 
     async function initCustomerPage() {
@@ -5849,6 +6347,164 @@
       }
     }
 
+    function incrementCount(map, key) {
+      const safeKey = key || "未設定";
+      map.set(safeKey, (map.get(safeKey) || 0) + 1);
+    }
+
+    function getCustomerAnalyticsData(customers, category, year) {
+      const list = Array.isArray(customers) ? customers : [];
+      const statusCounts = new Map();
+      const sourceCounts = new Map();
+      const staffCounts = new Map();
+      const monthlyCounts = Array.from({ length: 12 }, (_, i) => ({ month: i + 1, count: 0 }));
+      let contracted = 0;
+      let firstCallDone = 0;
+      let activeFollow = 0;
+      let unhandled = 0;
+
+      list.forEach((c) => {
+        const status = c.status || "未設定";
+        incrementCount(statusCounts, status);
+        incrementCount(sourceCounts, c.inquiry_source || "未設定");
+        incrementCount(staffCounts, c.staff_id || "未設定");
+
+        const d = c.inquiry_date ? new Date(c.inquiry_date) : null;
+        if (d && !Number.isNaN(d.getTime()) && d.getFullYear() === Number(year)) {
+          monthlyCounts[d.getMonth()].count += 1;
+        }
+
+        if (status === "成約" || c.contract === "済" || c.contract_status === "済") contracted += 1;
+        if (c.first_call === "済") firstCallDone += 1;
+        if (status === "追客中" || status === "案内済") activeFollow += 1;
+        if (status === "未対応") unhandled += 1;
+      });
+
+      const toSortedRows = (map) => Array.from(map.entries())
+        .map(([label, value]) => ({ label, value }))
+        .sort((a, b) => {
+          if (b.value !== a.value) return b.value - a.value;
+          return String(a.label).localeCompare(String(b.label), "ja");
+        });
+
+      return {
+        total: list.length,
+        contracted,
+        firstCallDone,
+        activeFollow,
+        unhandled,
+        conversionRate: list.length ? Math.round((contracted / list.length) * 100) : 0,
+        firstCallRate: list.length ? Math.round((firstCallDone / list.length) * 100) : 0,
+        category,
+        year,
+        monthly: monthlyCounts,
+        statuses: toSortedRows(statusCounts),
+        sources: toSortedRows(sourceCounts),
+        staff: toSortedRows(staffCounts),
+      };
+    }
+
+    function upsertCustomerChart(key, canvasId, config) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas || typeof Chart === "undefined") return;
+      if (customerState.analyticsCharts[key]) {
+        customerState.analyticsCharts[key].data = config.data;
+        customerState.analyticsCharts[key].options = config.options;
+        customerState.analyticsCharts[key].update();
+        return;
+      }
+      customerState.analyticsCharts[key] = new Chart(canvas, config);
+    }
+
+    function renderCustomerAnalyticsCharts(data) {
+      const commonBarOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
+        plugins: { legend: { display: false } },
+      };
+      upsertCustomerChart("monthly", "customerMonthlyChart", {
+        type: "bar",
+        data: {
+          labels: data.monthly.map((m) => `${m.month}月`),
+          datasets: [{ label: "反響数", data: data.monthly.map((m) => m.count), backgroundColor: "#3b82f6", borderRadius: 4 }],
+        },
+        options: commonBarOptions,
+      });
+
+      upsertCustomerChart("status", "customerStatusChart", {
+        type: "doughnut",
+        data: {
+          labels: data.statuses.map((r) => toHalfwidthKana(r.label)),
+          datasets: [{ data: data.statuses.map((r) => r.value), backgroundColor: ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ef4444", "#64748b"] }],
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 11 } } } } },
+      });
+
+      const topSources = data.sources.slice(0, 8);
+      upsertCustomerChart("source", "customerSourceChart", {
+        type: "bar",
+        data: {
+          labels: topSources.map((r) => toHalfwidthKana(r.label)),
+          datasets: [{ label: "件数", data: topSources.map((r) => r.value), backgroundColor: "#14b8a6", borderRadius: 4 }],
+        },
+        options: {
+          ...commonBarOptions,
+          indexAxis: "y",
+        },
+      });
+
+      const topStaff = data.staff.slice(0, 10);
+      upsertCustomerChart("staff", "customerStaffChart", {
+        type: "bar",
+        data: {
+          labels: topStaff.map((r) => toHalfwidthKana(r.label)),
+          datasets: [{ label: "件数", data: topStaff.map((r) => r.value), backgroundColor: "#f59e0b", borderRadius: 4 }],
+        },
+        options: commonBarOptions,
+      });
+    }
+
+    function renderCustomerAnalytics() {
+      const section = el("customerAnalyticsSection"); if (!section) return;
+      const data = getCustomerAnalyticsData(customerState.customers, customerState.category, customerState.year);
+      const kpis = el("customerAnalyticsKpis");
+      const charts = el("customerAnalyticsCharts");
+      const empty = el("customerAnalyticsEmpty");
+      const scope = el("customerAnalyticsScope");
+
+      const categoryLabel = { sell: "売", buy: "買", investment: "収益" }[customerState.category] || customerState.category;
+      if (scope) scope.textContent = `${customerState.year}年 / ${categoryLabel} / 現在の絞り込み結果を分析`;
+
+      if (!data.total) {
+        if (kpis) kpis.innerHTML = "";
+        if (charts) charts.classList.add("hidden");
+        if (empty) empty.classList.remove("hidden");
+        return;
+      }
+      if (charts) charts.classList.remove("hidden");
+      if (empty) empty.classList.add("hidden");
+
+      const kpiItems = [
+        ["顧客数", `${data.total}件`, categoryLabel],
+        ["未対応", `${data.unhandled}件`, "初動が必要"],
+        ["追客・案内", `${data.activeFollow}件`, "進行中"],
+        ["成約", `${data.contracted}件`, `成約率 ${data.conversionRate}%`],
+        ["架電済", `${data.firstCallDone}件`, `架電率 ${data.firstCallRate}%`],
+        ["反響媒体", `${data.sources.length}種`, data.sources[0] ? `最多 ${toHalfwidthKana(data.sources[0].label)}` : "-"],
+      ];
+      if (kpis) {
+        kpis.innerHTML = kpiItems.map(([label, value, note]) => `
+          <div class="customer-kpi-card">
+            <span class="customer-kpi-label">${label}</span>
+            <span class="customer-kpi-value">${value}</span>
+            <span class="customer-kpi-note">${note}</span>
+          </div>
+        `).join("");
+      }
+      renderCustomerAnalyticsCharts(data);
+    }
+
     async function loadCustomers(resetPage = true) {
       try {
         const params = new URLSearchParams();
@@ -5881,6 +6537,7 @@
 
         renderCustomerTable();
         renderCustomerPagination();
+        renderCustomerAnalytics();
         el("customerSummary").textContent = `${customerState.customers.length}件の顧客が見つかりました`;
 
         // 売カテゴリの場合、重複チェックを非同期実行
@@ -5888,11 +6545,13 @@
           checkDuplicates().then(() => {
             renderCustomerTable();
             renderCustomerPagination();
+            renderCustomerAnalytics();
           }).catch(err => console.error("重複チェックエラー:", err));
         }
       } catch (err) {
         console.error("顧客取得エラー:", err);
         el("customersBody").innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--danger-color);padding:20px;">データの読み込みに失敗しました</td></tr>`;
+        if (el("customerAnalyticsEmpty")) el("customerAnalyticsEmpty").classList.remove("hidden");
       }
     }
 
