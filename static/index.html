@@ -429,6 +429,12 @@
     .staff-trend-pill-value { display: block; font-size: 16px; color: var(--gray-900); font-weight: 700; line-height: 1.1; }
     .staff-trend-chart-wrap { height: 220px; border: 1px solid var(--gray-200); border-radius: 8px; padding: 10px; background: #fff; }
     .staff-trend-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .store-staff-compare { border: 1px solid var(--gray-200); border-radius: 8px; padding: 12px; background: #fff; margin-bottom: 14px; }
+    .store-staff-compare-header { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+    .store-staff-compare-title { margin: 0; font-size: 13px; font-weight: 700; color: var(--gray-700); }
+    .store-staff-compare-grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.7fr); gap: 12px; align-items: start; }
+    .store-staff-compare-chart { height: 240px; min-width: 0; }
+    .store-staff-compare-table-wrap { max-height: 240px; overflow: auto; border: 1px solid var(--gray-200); border-radius: 8px; }
 
     /* Alert */
     .alert-banner { display: flex; align-items: center; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; border: 1px solid #fcd34d; background: #fffbeb; gap: 12px; }
@@ -557,6 +563,8 @@
       .staff-trend-chart-wrap { height: 260px; padding: 8px; }
       .staff-trend-detail-grid { grid-template-columns: 1fr; }
       .staff-trend-detail-grid .table-container { display: block !important; }
+      .store-staff-compare-grid { grid-template-columns: 1fr; }
+      .store-staff-compare-chart { height: 260px; }
       .goal-progress-list { grid-template-columns: 1fr; }
 
       /* Table hidden on mobile, cards shown */
@@ -2171,7 +2179,7 @@
 
   <!-- 月次推移モーダル -->
   <div class="modal-backdrop hidden" id="modalMonthlyTrend">
-    <div class="modal" style="max-width: 560px;">
+    <div class="modal" style="max-width: 920px;">
       <div class="modal-header">
         <h3 class="modal-title">月次推移</h3>
         <button class="modal-close" data-close="modalMonthlyTrend">×</button>
@@ -2179,6 +2187,43 @@
       <div class="modal-body">
         <p class="stats-subtitle" style="margin: 0 0 12px 0;">年度タブで切り替えて表示できます。</p>
         <div class="monthly-trend-tabs" id="monthlyTrendYearTabs"></div>
+        <div class="staff-trend-analysis">
+          <div class="staff-trend-summary" id="storeTrendSummary"></div>
+          <div class="staff-trend-chart-wrap">
+            <canvas id="storeTrendChart"></canvas>
+          </div>
+        </div>
+        <div class="store-staff-compare">
+          <div class="store-staff-compare-header">
+            <h4 class="store-staff-compare-title">営業マン比較</h4>
+            <select class="filter-select" id="storeStaffCompareMetric" style="min-width:120px;">
+              <option value="add">新規</option>
+              <option value="contract">成約</option>
+              <option value="purchase">買取</option>
+              <option value="inventory">在庫</option>
+            </select>
+          </div>
+          <div class="store-staff-compare-grid">
+            <div class="store-staff-compare-chart">
+              <canvas id="storeStaffCompareChart"></canvas>
+            </div>
+            <div class="store-staff-compare-table-wrap">
+              <table class="staff-monthly-table">
+                <thead>
+                  <tr>
+                    <th>担当</th>
+                    <th>新規</th>
+                    <th>成約</th>
+                    <th>買取</th>
+                    <th>在庫</th>
+                    <th>率</th>
+                  </tr>
+                </thead>
+                <tbody id="storeStaffCompareBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
         <div class="table-container" style="max-height: 360px; overflow-y: auto;">
           <table>
             <thead>
@@ -2507,6 +2552,8 @@
       editingId: null,
       operationLoading: false,
       chart: null,
+      storeTrendChart: null,
+      storeStaffCompareChart: null,
       staffTrendChart: null,
     };
     let salesSaveQueue = Promise.resolve();
@@ -4128,6 +4175,7 @@
 
       if (!list.length) {
         tabs.innerHTML = "";
+        renderStoreTrendAnalysis(list, "");
         renderMonthlyTrendRows(list, "");
         openModal("modalMonthlyTrend");
         return;
@@ -4136,6 +4184,7 @@
       const years = [...new Set(list.map((m) => Number(m.year)).filter((y) => Number.isFinite(y)))].sort((a, b) => b - a);
       if (!years.length) {
         tabs.innerHTML = "";
+        renderStoreTrendAnalysis(list, "");
         renderMonthlyTrendRows(list, "");
         openModal("modalMonthlyTrend");
         return;
@@ -4152,7 +4201,9 @@
         });
       });
 
-      renderMonthlyTrendRows(list, activeYear);
+      const yearRows = renderStoreTrendAnalysis(list, activeYear);
+      renderStoreStaffComparison(activeYear);
+      renderMonthlyTrendRows(yearRows, "");
       openModal("modalMonthlyTrend");
     }
 
@@ -4219,8 +4270,36 @@
       `).join("");
     }
 
-    function renderStaffTrendChart(rows) {
-      const ctx = document.getElementById("staffTrendChart");
+    function renderStoreTrendSummary(rows) {
+      const summary = el("storeTrendSummary"); if (!summary) return;
+      const totals = rows.reduce((acc, r) => {
+        acc.add += Number(r.add) || 0;
+        acc.contract += Number(r.contract) || 0;
+        acc.purchase += Number(r.purchase) || 0;
+        acc.other += Number(r.other) || 0;
+        acc.cancel += Number(r.cancel) || 0;
+        return acc;
+      }, { add: 0, contract: 0, purchase: 0, other: 0, cancel: 0 });
+      const currentInventory = rows.length ? rows[rows.length - 1].inventory : 0;
+      const closePurchaseRate = totals.add > 0 ? `${Math.round(((totals.contract + totals.purchase) / totals.add) * 100)}%` : "-";
+      const items = [
+        ["店舗新規", `${totals.add}件`],
+        ["成約合計", `${totals.contract}件`],
+        ["買取合計", `${totals.purchase}件`],
+        ["他決・中止", `${totals.other + totals.cancel}件`],
+        ["店舗在庫", `${currentInventory}件`],
+        ["成約+買取率", closePurchaseRate],
+      ];
+      summary.innerHTML = items.map(([label, value]) => `
+        <div class="staff-trend-pill">
+          <span class="staff-trend-pill-label">${label}</span>
+          <span class="staff-trend-pill-value">${value}</span>
+        </div>
+      `).join("");
+    }
+
+    function renderTrendChartToCanvas(rows, canvasId, chartKey) {
+      const ctx = document.getElementById(canvasId);
       if (!ctx || typeof Chart === "undefined") return;
       const labels = rows.map((r) => `${r.month}月`);
       const makeBar = (label, key, color) => ({
@@ -4264,13 +4343,131 @@
           legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 11 } } },
         },
       };
-      if (state.staffTrendChart) {
-        state.staffTrendChart.data = data;
-        state.staffTrendChart.options = options;
-        state.staffTrendChart.update();
+      if (state[chartKey]) {
+        state[chartKey].data = data;
+        state[chartKey].options = options;
+        state[chartKey].update();
         return;
       }
-      state.staffTrendChart = new Chart(ctx, { type: "bar", data, options });
+      state[chartKey] = new Chart(ctx, { type: "bar", data, options });
+    }
+
+    function renderStaffTrendChart(rows) {
+      renderTrendChartToCanvas(rows, "staffTrendChart", "staffTrendChart");
+    }
+
+    function renderStoreTrendChart(rows) {
+      renderTrendChartToCanvas(rows, "storeTrendChart", "storeTrendChart");
+    }
+
+    function renderStoreTrendAnalysis(list, targetYear) {
+      const rows = getStaffTrendYearRows(list, targetYear);
+      renderStoreTrendSummary(rows);
+      renderStoreTrendChart(rows);
+      return rows;
+    }
+
+    function getStoreComparisonStaffNames() {
+      const names = new Set();
+      (state.staffOrder || []).forEach((n) => { if (n) names.add(n); });
+      (state.masters["担当"] || []).forEach((n) => { if (n) names.add(n); });
+      [...state.contracts, ...state.closed].forEach((c) => {
+        if (c.staff) names.add(c.staff);
+      });
+      return getSortedStaffNames(Array.from(names));
+    }
+
+    function getStoreStaffComparisonRows(targetYear) {
+      const staffNames = getStoreComparisonStaffNames();
+      return staffNames.map((staffName) => {
+        const monthlyRows = getStaffTrendYearRows(getStaffMonthlyBreakdown(staffName), targetYear);
+        const totals = monthlyRows.reduce((acc, r) => {
+          acc.add += Number(r.add) || 0;
+          acc.contract += Number(r.contract) || 0;
+          acc.purchase += Number(r.purchase) || 0;
+          acc.other += Number(r.other) || 0;
+          acc.cancel += Number(r.cancel) || 0;
+          return acc;
+        }, { add: 0, contract: 0, purchase: 0, other: 0, cancel: 0 });
+        const inventory = monthlyRows.length ? Number(monthlyRows[monthlyRows.length - 1].inventory) || 0 : 0;
+        const closePurchaseRate = totals.add > 0 ? Math.round(((totals.contract + totals.purchase) / totals.add) * 100) : 0;
+        return { staffName, monthlyRows, totals, inventory, closePurchaseRate };
+      }).filter((row) => row.totals.add || row.totals.contract || row.totals.purchase || row.totals.other || row.totals.cancel || row.inventory);
+    }
+
+    function renderStoreStaffCompareChart(rows, metric) {
+      const ctx = document.getElementById("storeStaffCompareChart");
+      if (!ctx || typeof Chart === "undefined") return;
+      const metricLabels = { add: "新規", contract: "成約", purchase: "買取", inventory: "在庫" };
+      const palette = ["#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ef4444", "#0ea5e9", "#14b8a6", "#64748b"];
+      const monthCount = rows.reduce((max, row) => Math.max(max, row.monthlyRows.length), 0);
+      const labels = Array.from({ length: monthCount }, (_, i) => `${i + 1}月`);
+      const datasets = rows.map((row, idx) => ({
+        type: "line",
+        label: row.staffName,
+        data: labels.map((_, i) => Number(row.monthlyRows[i]?.[metric]) || 0),
+        borderColor: palette[idx % palette.length],
+        backgroundColor: palette[idx % palette.length],
+        borderWidth: 2,
+        pointRadius: 2,
+        tension: 0.25,
+      }));
+      const data = { labels, datasets };
+      const options = {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
+        plugins: {
+          legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 11 } } },
+          tooltip: { callbacks: { title: (items) => `${items[0]?.label || ""} ${metricLabels[metric] || ""}` } },
+        },
+      };
+      if (state.storeStaffCompareChart) {
+        state.storeStaffCompareChart.data = data;
+        state.storeStaffCompareChart.options = options;
+        state.storeStaffCompareChart.update();
+        return;
+      }
+      state.storeStaffCompareChart = new Chart(ctx, { type: "line", data, options });
+    }
+
+    function renderStoreStaffCompareTable(rows) {
+      const body = el("storeStaffCompareBody"); if (!body) return;
+      if (!rows.length) {
+        body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--gray-500);padding:12px;">比較できるデータがありません</td></tr>`;
+        return;
+      }
+      const sorted = [...rows].sort((a, b) => {
+        if (b.totals.add !== a.totals.add) return b.totals.add - a.totals.add;
+        return String(a.staffName).localeCompare(String(b.staffName), "ja");
+      });
+      body.innerHTML = sorted.map((row) => `<tr>
+        <td><button type="button" class="btn btn-outline" style="font-size:11px;padding:3px 7px;" data-store-staff-detail="${row.staffName}">${row.staffName}</button></td>
+        <td>${row.totals.add}</td>
+        <td>${row.totals.contract}</td>
+        <td>${row.totals.purchase}</td>
+        <td>${row.inventory}</td>
+        <td>${row.totals.add ? row.closePurchaseRate + "%" : "-"}</td>
+      </tr>`).join("");
+      body.querySelectorAll("button[data-store-staff-detail]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          closeModal("modalMonthlyTrend");
+          openStaffMonthlyTrendModal(btn.dataset.storeStaffDetail);
+        });
+      });
+    }
+
+    function renderStoreStaffComparison(activeYear) {
+      const metricSelect = el("storeStaffCompareMetric");
+      const metric = metricSelect?.value || "add";
+      const rows = getStoreStaffComparisonRows(activeYear);
+      if (metricSelect && !metricSelect.dataset.bound) {
+        metricSelect.dataset.bound = "1";
+        metricSelect.addEventListener("change", () => renderStoreStaffComparison(state.monthlyTrendYear || activeYear));
+      }
+      renderStoreStaffCompareChart(rows, metric);
+      renderStoreStaffCompareTable(rows);
     }
 
     function renderStaffTrendAnalysis(list, targetYear) {
