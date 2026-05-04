@@ -1,4 +1,4 @@
-const CACHE_NAME = "estate-tools-v20260504-9";
+const CACHE_NAME = "estate-tools-v20260504-11";
 const STATIC_ASSETS = [
   "/static/logo.jpg",
   "https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap",
