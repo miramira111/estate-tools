@@ -575,38 +575,10 @@ def find_contract(contract_id):
             return db_row_to_contract(row)
 
 
-def save_contract(contract, year_month=None):
-    """契約を保存（upsert）"""
+def save_contract(contract, year_month=None, allow_update=True):
+    """Save a contract. Set allow_update=False for insert-only create paths."""
     params = contract_to_db_params(contract, year_month)
-    with get_db_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO contracts (
-                    id, year_month, source_file,
-                    key_box_number, status_date, reins_change_date,
-                    reins_changed, reins_expire_date, reins_registered,
-                    cancel_reason, created_at, updated_at, updated_by,
-                    notes, media_source, deal_status,
-                    seller_name, seller_address, seller_contact,
-                    mediation_expire_date, mediation_start_date, staff_id,
-                    property_address, property_type, current_price,
-                    occupancy_status, application_date, contract_type,
-                    key_location, price_history, change_history,
-                    deal_info, purchase_info
-                ) VALUES (
-                    %(id)s, %(year_month)s, %(source_file)s,
-                    %(key_box_number)s, %(status_date)s, %(reins_change_date)s,
-                    %(reins_changed)s, %(reins_expire_date)s, %(reins_registered)s,
-                    %(cancel_reason)s, %(created_at)s, %(updated_at)s, %(updated_by)s,
-                    %(notes)s, %(media_source)s, %(deal_status)s,
-                    %(seller_name)s, %(seller_address)s, %(seller_contact)s,
-                    %(mediation_expire_date)s, %(mediation_start_date)s, %(staff_id)s,
-                    %(property_address)s, %(property_type)s, %(current_price)s,
-                    %(occupancy_status)s, %(application_date)s, %(contract_type)s,
-                    %(key_location)s, %(price_history)s, %(change_history)s,
-                    %(deal_info)s, %(purchase_info)s
-                )
+    conflict_sql = """
                 ON CONFLICT (id) DO UPDATE SET
                     year_month = EXCLUDED.year_month,
                     source_file = EXCLUDED.source_file,
@@ -640,6 +612,37 @@ def save_contract(contract, year_month=None):
                     change_history = EXCLUDED.change_history,
                     deal_info = EXCLUDED.deal_info,
                     purchase_info = EXCLUDED.purchase_info
+                """ if allow_update else ""
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"""
+                INSERT INTO contracts (
+                    id, year_month, source_file,
+                    key_box_number, status_date, reins_change_date,
+                    reins_changed, reins_expire_date, reins_registered,
+                    cancel_reason, created_at, updated_at, updated_by,
+                    notes, media_source, deal_status,
+                    seller_name, seller_address, seller_contact,
+                    mediation_expire_date, mediation_start_date, staff_id,
+                    property_address, property_type, current_price,
+                    occupancy_status, application_date, contract_type,
+                    key_location, price_history, change_history,
+                    deal_info, purchase_info
+                ) VALUES (
+                    %(id)s, %(year_month)s, %(source_file)s,
+                    %(key_box_number)s, %(status_date)s, %(reins_change_date)s,
+                    %(reins_changed)s, %(reins_expire_date)s, %(reins_registered)s,
+                    %(cancel_reason)s, %(created_at)s, %(updated_at)s, %(updated_by)s,
+                    %(notes)s, %(media_source)s, %(deal_status)s,
+                    %(seller_name)s, %(seller_address)s, %(seller_contact)s,
+                    %(mediation_expire_date)s, %(mediation_start_date)s, %(staff_id)s,
+                    %(property_address)s, %(property_type)s, %(current_price)s,
+                    %(occupancy_status)s, %(application_date)s, %(contract_type)s,
+                    %(key_location)s, %(price_history)s, %(change_history)s,
+                    %(deal_info)s, %(purchase_info)s
+                )
+                {conflict_sql}
                 """,
                 params
             )
@@ -1410,7 +1413,10 @@ def api_create_contract():
     payload["更新日時"] = now_iso
     payload.setdefault("ステータス日付", payload.get("新規媒介締結日") or now_iso.split("T")[0])
 
-    save_contract(payload, year_month)
+    try:
+        save_contract(payload, year_month, allow_update=False)
+    except psycopg2.errors.UniqueViolation:
+        return jsonify({"error": "この媒介No.は既に使用されています"}), 400
     return jsonify({"ok": True, "contract": payload}), 201
 
 
@@ -1475,7 +1481,10 @@ def api_create_purchase():
         "更新日時": now_iso,
     }
 
-    save_contract(record, year_month)
+    try:
+        save_contract(record, year_month, allow_update=False)
+    except psycopg2.errors.UniqueViolation:
+        return jsonify({"error": "この媒介No.は既に使用されています"}), 400
     return jsonify({"ok": True, "contract": record}), 201
 
 
@@ -2502,18 +2511,26 @@ def api_export_customers(category, year):
 # ------------------------------------------------------------
 # PWA ルーティング
 # ------------------------------------------------------------
+def set_no_store_headers(response):
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
+
 @app.route("/sw.js")
 def serve_sw():
     response = send_from_directory(app.static_folder, "sw.js")
     response.headers["Service-Worker-Allowed"] = "/"
     response.headers["Content-Type"] = "application/javascript"
-    return response
+    return set_no_store_headers(response)
 
 
 @app.route("/manifest.json")
 def serve_manifest():
-    return send_from_directory(app.static_folder, "manifest.json",
-                               mimetype="application/manifest+json")
+    response = send_from_directory(app.static_folder, "manifest.json",
+                                   mimetype="application/manifest+json")
+    return set_no_store_headers(response)
 
 
 # ------------------------------------------------------------
@@ -2523,8 +2540,12 @@ def serve_manifest():
 @app.route("/<path:path>")
 def serve_index(path):
     if path and os.path.exists(os.path.join(app.static_folder, path)):
-        return send_from_directory(app.static_folder, path)
-    return send_from_directory(app.static_folder, "index.html")
+        response = send_from_directory(app.static_folder, path)
+        if path in ("index.html", "sw.js", "manifest.json") or path.endswith((".js", ".css")):
+            return set_no_store_headers(response)
+        return response
+    response = send_from_directory(app.static_folder, "index.html")
+    return set_no_store_headers(response)
 
 
 # ------------------------------------------------------------

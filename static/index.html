@@ -429,6 +429,10 @@
     .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
     .modal-title { font-size: 16px; font-weight: 700; margin: 0; }
     .modal-close { background: transparent; border: none; font-size: 20px; cursor: pointer; color: var(--gray-500); }
+    .operation-loading { position: fixed; inset: 0; z-index: 1400; display: flex; align-items: center; justify-content: center; background: rgba(15, 23, 42, 0.35); }
+    .operation-loading-box { display: flex; align-items: center; gap: 10px; min-width: 220px; justify-content: center; background: #fff; border: 1px solid var(--gray-200); border-radius: 8px; padding: 16px 18px; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18); font-size: 13px; font-weight: 600; color: var(--gray-800); }
+    .operation-spinner { width: 18px; height: 18px; border: 3px solid var(--gray-200); border-top-color: var(--primary-color); border-radius: 50%; animation: spin 0.8s linear infinite; flex-shrink: 0; }
+    @keyframes spin { to { transform: rotate(360deg); } }
     .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-bottom: 12px; }
     .form-group { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--gray-700); }
     .form-group label { font-weight: 600; }
@@ -807,6 +811,13 @@
         <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center; margin-top: 12px;">ログイン</button>
         <div id="loginError" class="error-text hidden"></div>
       </form>
+    </div>
+  </div>
+
+  <div class="operation-loading hidden" id="operationLoading" role="status" aria-live="polite" aria-busy="true">
+    <div class="operation-loading-box">
+      <span class="operation-spinner" aria-hidden="true"></span>
+      <span id="operationLoadingText">操作を準備しています...</span>
     </div>
   </div>
 
@@ -2303,6 +2314,7 @@
 
     const KEYBOX_LABEL = "ｷｰﾎﾞｯｸｽ";
     const KEYBOX_OLD_LABEL = "キーボックス";
+    const CONTRACTS_STALE_MS = 5 * 60 * 1000;
     const DEFAULT_GOAL_STATE = { storeTarget: 0, staffTargets: {}, includeStaff: [], carryOverEnabled: false, progressMode: "auto" };
     const DEFAULT_GOAL_CARRY = {
       enabled: false,
@@ -2318,6 +2330,7 @@
       staffCarryOut: {},
     };
     const DEFAULT_SALES_STATE = { store: 0, staff: {} };
+    const DEFAULT_CONTRACT_SORT_KEY = "__defaultContractOrder";
 
     const state = {
       masters: {},
@@ -2328,6 +2341,7 @@
       staffOrder: [],
       notifications: [],
       statusColors: {},
+      contractsLoadedAt: 0,
       goals: { ...DEFAULT_GOAL_STATE },
       goalBase: { ...DEFAULT_GOAL_STATE },
       goalCarryOver: { ...DEFAULT_GOAL_CARRY },
@@ -2339,8 +2353,9 @@
       currentUser: null,
       loginId: null,
       filters: { staff: "", status: "", from: "", to: "", query: "", closedOnly: false },
-      sort: { key: "signedDate", dir: "desc" },
+      sort: { key: DEFAULT_CONTRACT_SORT_KEY, dir: "desc" },
       editingId: null,
+      operationLoading: false,
       chart: null,
     };
     let salesSaveQueue = Promise.resolve();
@@ -2378,8 +2393,8 @@
     function bindGlobalEvents() {
       el("sidebarToggle").addEventListener("click", toggleSidebar);
       el("logoutBtn").addEventListener("click", logout);
-      el("btnNewContract").addEventListener("click", () => openContractModal());
-      el("btnNewPurchase").addEventListener("click", openNewPurchaseModal);
+      el("btnNewContract").addEventListener("click", openNewContractAfterFreshLoad);
+      el("btnNewPurchase").addEventListener("click", openNewPurchaseAfterFreshLoad);
       el("btnDeadlineView").addEventListener("click", () => alert("期限カレンダーは現在の表を基に確認してください。"));
       el("btnShowClosed").addEventListener("click", toggleClosedView);
       el("btnMasters").addEventListener("click", openMastersModal);
@@ -2444,7 +2459,7 @@
         }
       });
       
-      el("btnNewContract2").addEventListener("click", () => openContractModal());
+      el("btnNewContract2").addEventListener("click", openNewContractAfterFreshLoad);
       el("btnBackupManage").addEventListener("click", openBackupModal);
       el("btnRunBackup").addEventListener("click", runBackup);
       
@@ -2624,6 +2639,7 @@
       state.summary = [];
       state.includeStaff = [];
       state.staffOrder = [];
+      state.contractsLoadedAt = 0;
       state.sales = { ...DEFAULT_SALES_STATE };
       state.goalProgress = { updatedAt: "", monthly: {}, yearly: {} };
       state.staffMonthlyGoals = {};
@@ -2646,6 +2662,37 @@
       renderClosedTable();
       renderByStaffTables();
       renderAdminTable();
+    }
+
+    function isContractsDataStale() {
+      return !state.contractsLoadedAt || Date.now() - state.contractsLoadedAt > CONTRACTS_STALE_MS;
+    }
+
+    async function refreshContractsBeforeNewEntry() {
+      if (!isContractsDataStale()) return true;
+      const loaded = await loadContracts();
+      if (!loaded) {
+        alert("最新データの取得に失敗しました。通信状況を確認してから再度お試しください。");
+        return false;
+      }
+      await loadSummary();
+      renderFilters();
+      renderStats();
+      renderTable();
+      renderRegisterTable();
+      renderClosedTable();
+      renderByStaffTables();
+      renderAdminTable();
+      renderAlert();
+      return true;
+    }
+
+    async function openNewContractAfterFreshLoad() {
+      if (await refreshContractsBeforeNewEntry()) openContractModal();
+    }
+
+    async function openNewPurchaseAfterFreshLoad() {
+      if (await refreshContractsBeforeNewEntry()) openNewPurchaseModal();
     }
 
     async function apiFetch(url, options = {}) {
@@ -2892,7 +2939,12 @@
         const [active, closed] = await Promise.all([apiFetch("/api/contracts/active"), apiFetch("/api/contracts/closed")]);
         state.contracts = active.map(normalizeContract);
         state.closed = closed.map(normalizeContract);
-      } catch (err) { console.error(err); }
+        state.contractsLoadedAt = Date.now();
+        return true;
+      } catch (err) {
+        console.error(err);
+        return false;
+      }
     }
 
     async function loadSummary() {
@@ -4041,6 +4093,22 @@
           });
       };
 
+      const getClosedSortDate = (c, kind) => {
+        if (kind === "contracted") return c.closeInfo?.成約日 || "";
+        if (kind === "purchased") return c.purchaseInfo?.買取日 || "";
+        if (kind === "other") return c.otherInfo?.他決日 || c.statusDate || "";
+        return c.cancelInfo?.中止日 || "";
+      };
+
+      const sortClosedList = (list, kind) => {
+        return [...list].sort((a, b) => {
+          const dateA = getDateSortValue(getClosedSortDate(a, kind));
+          const dateB = getDateSortValue(getClosedSortDate(b, kind));
+          if (dateA !== dateB) return dateB - dateA;
+          return parseContractIdForSort(a.id, b.id);
+        });
+      };
+
       const getInfoText = (c, kind) => {
         if (kind === "contracted") {
           const info = c.closeInfo || {};
@@ -4141,10 +4209,10 @@
           btn.addEventListener("click", () => handleClosedAction(btn.dataset.action, btn.dataset.id)));
       };
 
-      const contracted = filterList("成約", queryContracted);
-      const purchased = filterList("買取", queryPurchased);
-      const canceled = filterList("中止", queryCanceled);
-      const other = filterList("他決", queryOther);
+      const contracted = sortClosedList(filterList("成約", queryContracted), "contracted");
+      const purchased = sortClosedList(filterList("買取", queryPurchased), "purchased");
+      const canceled = sortClosedList(filterList("中止", queryCanceled), "canceled");
+      const other = sortClosedList(filterList("他決", queryOther), "other");
 
       // Mobile cards
       if (isMobileView()) {
@@ -4171,31 +4239,37 @@
       if (!contract) return;
       
       if (action === "edit") {
-        const locked = await acquireLock(id);
-        if (!locked) return;
-        state.editingId = id;
-        openContractModal(contract);
+        await runWithOperationLoading(async () => {
+          const locked = await acquireLock(id);
+          if (!locked) return false;
+          state.editingId = id;
+          openContractModal(contract);
+          return true;
+        });
       } else if (action === "reactivate") {
         if (!confirm(`${id} を「公開中」に戻しますか？`)) return;
-        const locked = await acquireLock(id);
-        if (!locked) return;
-        state.editingId = id;
-        const updated = toPayload(contract, {
-          status: "公開中",
-          statusDate: new Date().toISOString().slice(0, 10),
-          closeInfo: null,
-          otherInfo: null,
-          purchaseInfo: null,
-          cancelInfo: null,
+        await runWithOperationLoading(async () => {
+          const locked = await acquireLock(id);
+          if (!locked) return false;
+          state.editingId = id;
+          const updated = toPayload(contract, {
+            status: "公開中",
+            statusDate: new Date().toISOString().slice(0, 10),
+            closeInfo: null,
+            otherInfo: null,
+            purchaseInfo: null,
+            cancelInfo: null,
+          });
+          await apiFetch(`/api/contracts/${id}`, { method: "PUT", body: JSON.stringify(updated) });
+          releaseLock();
+          await loadContracts();
+          await loadSummary();
+          renderStats();
+          renderTable();
+          renderClosedTable();
+          renderAlert();
+          return true;
         });
-        await apiFetch(`/api/contracts/${id}`, { method: "PUT", body: JSON.stringify(updated) });
-        releaseLock();
-        await loadContracts();
-        await loadSummary();
-        renderStats();
-        renderTable();
-        renderClosedTable();
-        renderAlert();
       }
     }
 
@@ -4327,6 +4401,10 @@
         const key = state.sort.key;
         const dir = state.sort.dir === "asc" ? 1 : -1;
 
+        if (key === DEFAULT_CONTRACT_SORT_KEY) {
+          return compareDefaultContractOrder(a, b);
+        }
+
         // 媒介No.の場合は特別処理（年-月-連番でソート）
         if (key === "id") {
           return parseContractIdForSort(a.id, b.id) * dir;
@@ -4343,6 +4421,47 @@
         if (cmp === 0) cmp = parseContractIdForSort(a.id, b.id);
         return cmp;
       });
+    }
+
+    function compareDefaultContractOrder(a, b) {
+      const partsA = getContractIdSortParts(a.id);
+      const partsB = getContractIdSortParts(b.id);
+      if (partsA.year !== partsB.year) return partsB.year - partsA.year;
+      if (partsA.month !== partsB.month) return partsB.month - partsA.month;
+
+      const brokerA = partsA.seq >= 100 ? 1 : 0;
+      const brokerB = partsB.seq >= 100 ? 1 : 0;
+      if (brokerA !== brokerB) return brokerA - brokerB;
+
+      if (partsA.seq !== partsB.seq) return partsA.seq - partsB.seq;
+      return String(a.id || "").localeCompare(String(b.id || ""), "ja");
+    }
+
+    function getDateSortValue(value) {
+      if (!value) return -Infinity;
+      const time = new Date(value).getTime();
+      return Number.isNaN(time) ? -Infinity : time;
+    }
+
+    function getContractIdSortParts(id) {
+      const parts = String(id || "").split("-");
+      const fallback = { year: -Infinity, month: -Infinity, seq: Infinity };
+      if (parts.length !== 3) return fallback;
+
+      const yearPart = parts[0];
+      let year;
+      if (/^r\d+$/i.test(yearPart)) {
+        year = 2018 + (parseInt(yearPart.slice(1), 10) || 0);
+      } else {
+        const y = parseInt(yearPart, 10);
+        if (Number.isNaN(y)) return fallback;
+        year = y < 100 ? 2000 + y : y;
+      }
+
+      const month = parseInt(parts[1], 10);
+      const seq = parseInt(parts[2], 10);
+      if (Number.isNaN(month) || Number.isNaN(seq) || month < 1 || month > 12) return fallback;
+      return { year, month, seq };
     }
     
     // 媒介No.を数値でソートするための比較関数
@@ -4494,6 +4613,30 @@
     function openModal(id) { const backdrop = el(id); if (backdrop) backdrop.classList.remove("hidden"); }
     function closeModal(id) { const backdrop = el(id); if (backdrop) backdrop.classList.add("hidden"); if (["modalContract","modalClose","modalPurchase","modalCancel","modalOther","modalUpdate","modalChange"].includes(id)) releaseLock(); }
 
+    function showOperationLoading(message = "操作を準備しています...") {
+      state.operationLoading = true;
+      const text = el("operationLoadingText");
+      if (text) text.textContent = message;
+      const overlay = el("operationLoading");
+      if (overlay) overlay.classList.remove("hidden");
+    }
+
+    function hideOperationLoading() {
+      const overlay = el("operationLoading");
+      if (overlay) overlay.classList.add("hidden");
+      state.operationLoading = false;
+    }
+
+    async function runWithOperationLoading(task, message = "操作を準備しています...") {
+      if (state.operationLoading) return false;
+      showOperationLoading(message);
+      try {
+        return await task();
+      } finally {
+        hideOperationLoading();
+      }
+    }
+
     function openContractModal(contract) {
       state.editingId = contract ? contract.id : null;
       const form = el("contractForm");
@@ -4589,18 +4732,22 @@
         return;
       }
       if (["edit", "close", "purchase", "other", "cancel", "renew", "change"].includes(action)) {
-        const locked = await acquireLock(id);
-        if (!locked) return;
-        state.editingId = id;
+        await runWithOperationLoading(async () => {
+          const locked = await acquireLock(id);
+          if (!locked) return false;
+          state.editingId = id;
+          if (action === "edit") openContractModal(contract);
+          else if (action === "renew") openUpdateModal(contract);
+          else if (action === "change") openChangeModal(contract);
+          else if (action === "close") openCloseModal(contract);
+          else if (action === "purchase") openPurchaseModal(contract);
+          else if (action === "other") openOtherModal(contract);
+          else if (action === "cancel") openCancelModal(contract);
+          return true;
+        });
+        return;
       }
-      if (action === "edit") openContractModal(contract);
-      else if (action === "renew") openUpdateModal(contract);
-      else if (action === "change") openChangeModal(contract);
-      else if (action === "close") openCloseModal(contract);
-      else if (action === "purchase") openPurchaseModal(contract);
-      else if (action === "other") openOtherModal(contract);
-      else if (action === "cancel") openCancelModal(contract);
-      else if (action === "delete") {
+      if (action === "delete") {
         if (confirm("削除してよろしいですか？")) {
           await apiFetch(`/api/contracts/${id}`, { method: "DELETE" });
           await loadContracts();
@@ -7195,8 +7342,27 @@
   // PWA Service Worker Registration
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js')
-        .then((reg) => console.log('SW registered:', reg.scope))
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (refreshing) return;
+        refreshing = true;
+        window.location.reload();
+      });
+
+      navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
+        .then((reg) => {
+          console.log('SW registered:', reg.scope);
+          reg.update();
+          reg.addEventListener('updatefound', () => {
+            const worker = reg.installing;
+            if (!worker) return;
+            worker.addEventListener('statechange', () => {
+              if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+                worker.postMessage({ type: 'SKIP_WAITING' });
+              }
+            });
+          });
+        })
         .catch((err) => console.error('SW registration failed:', err));
     });
   }
