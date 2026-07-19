@@ -657,6 +657,47 @@ def delete_contract(contract_id):
         conn.commit()
 
 
+# ------------------------------------------------------------
+# weekly_reports（業務処理報告書 送付記録）テーブル操作
+# ------------------------------------------------------------
+REPORT_METHOD_COLUMNS = ("sent_post", "sent_line", "sent_email", "sent_other")
+
+
+def load_weekly_reports(report_date):
+    """指定日の送付記録を contract_id をキーにした辞書で返す"""
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT * FROM weekly_reports WHERE report_date = %s",
+                (report_date,),
+            )
+            rows = cur.fetchall()
+    reports = {}
+    for row in rows:
+        reports[row["contract_id"]] = {
+            "report_date": format_date(row["report_date"]),
+            "sent_post": bool(row["sent_post"]),
+            "sent_line": bool(row["sent_line"]),
+            "sent_email": bool(row["sent_email"]),
+            "sent_other": bool(row["sent_other"]),
+            "created_by": row["created_by"] or "",
+            "updated_at": format_datetime(row["updated_at"]),
+        }
+    return reports
+
+
+def load_last_report_dates():
+    """契約ごとの最終報告日を返す"""
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT contract_id, MAX(report_date) AS last_date"
+                " FROM weekly_reports GROUP BY contract_id"
+            )
+            rows = cur.fetchall()
+    return {row["contract_id"]: format_date(row["last_date"]) for row in rows}
+
+
 def duplicate_exists(contract_id, exclude_id=None):
     """重複チェック"""
     with get_db_connection() as conn:
@@ -1382,6 +1423,79 @@ def api_contracts_closed():
             closed.append(contract)
     closed.sort(key=sort_key_contract_id)
     return jsonify(closed)
+
+
+@app.route("/api/weekly-reports", methods=["GET"])
+@login_required
+def api_get_weekly_reports():
+    report_date = parse_date(request.args.get("date"))
+    if not report_date:
+        return jsonify({"error": "日付を指定してください"}), 400
+    return jsonify({
+        "reports": load_weekly_reports(report_date),
+        "last_sent": load_last_report_dates(),
+    })
+
+
+@app.route("/api/weekly-reports", methods=["POST"])
+@login_required
+def api_save_weekly_reports():
+    payload = request.get_json() or {}
+    report_date = parse_date(payload.get("report_date"))
+    if not report_date:
+        return jsonify({"error": "日付を指定してください"}), 400
+    entries = payload.get("entries")
+    if not isinstance(entries, list) or not entries:
+        return jsonify({"error": "保存対象がありません"}), 400
+
+    user_name = session.get("user_id") or ""
+    now = datetime.now()
+
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                contract_id = entry.get("contract_id")
+                if not contract_id:
+                    continue
+                flags = {col: bool(entry.get(col)) for col in REPORT_METHOD_COLUMNS}
+                if any(flags.values()):
+                    cur.execute(
+                        """
+                        INSERT INTO weekly_reports (
+                            contract_id, report_date,
+                            sent_post, sent_line, sent_email, sent_other,
+                            created_by, created_at, updated_at
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (contract_id, report_date) DO UPDATE SET
+                            sent_post = EXCLUDED.sent_post,
+                            sent_line = EXCLUDED.sent_line,
+                            sent_email = EXCLUDED.sent_email,
+                            sent_other = EXCLUDED.sent_other,
+                            created_by = EXCLUDED.created_by,
+                            updated_at = EXCLUDED.updated_at
+                        """,
+                        (
+                            contract_id, report_date,
+                            flags["sent_post"], flags["sent_line"],
+                            flags["sent_email"], flags["sent_other"],
+                            user_name, now, now,
+                        ),
+                    )
+                else:
+                    cur.execute(
+                        "DELETE FROM weekly_reports"
+                        " WHERE contract_id = %s AND report_date = %s",
+                        (contract_id, report_date),
+                    )
+        conn.commit()
+
+    return jsonify({
+        "ok": True,
+        "reports": load_weekly_reports(report_date),
+        "last_sent": load_last_report_dates(),
+    })
 
 
 @app.route("/api/contracts/<contract_id>", methods=["GET"])

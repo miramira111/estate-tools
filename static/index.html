@@ -942,6 +942,7 @@
         <li class="menu-item" data-page="closed-canceled"><span class="icon">⛔</span><span>中止リスト</span></li>
         <li class="menu-item" data-page="closed-other"><span class="icon">🗂️</span><span>一般他社他決</span></li>
         <li class="menu-item" data-page="by-staff"><span class="icon">👤</span><span>担当別管理</span></li>
+        <li class="menu-item" data-page="clerk"><span class="icon">📮</span><span>事務員メニュー</span></li>
         <li class="menu-item" data-page="settings"><span class="icon">⚙️</span><span>設定</span></li>
         <li class="menu-item" data-page="admin"><span class="icon">🗑️</span><span>削除管理</span></li>
       </ul>
@@ -963,6 +964,7 @@
       <button class="mobile-nav-item" data-mob-page="closed-canceled"><span class="nav-icon">⛔</span><span>中止</span></button>
       <button class="mobile-nav-item" data-mob-page="closed-other"><span class="nav-icon">🗂️</span><span>他決</span></button>
       <button class="mobile-nav-item" data-mob-page="by-staff"><span class="nav-icon">👤</span><span>担当別</span></button>
+      <button class="mobile-nav-item" data-mob-page="clerk"><span class="nav-icon">📮</span><span>事務員</span></button>
       <button class="mobile-nav-item" data-mob-page="settings"><span class="nav-icon">⚙️</span><span>設定</span></button>
       <button class="mobile-nav-item" data-mob-page="admin"><span class="nav-icon">🗑️</span><span>削除</span></button>
     </div>
@@ -1274,6 +1276,59 @@
               </table>
             </div>
             <div class="mobile-card-list mobile-only" id="byStaffCardList"></div>
+          </div>
+        </section>
+
+        <section id="page-clerk" class="page-section">
+          <h2 class="page-title">事務員メニュー（業務処理報告書）</h2>
+          <div class="section-card">
+            <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;">
+              <div>
+                <label style="display:block;font-size:12px;color:var(--gray-500);margin-bottom:4px;">報告日（送付日）</label>
+                <input type="date" class="filter-select" id="clerkDate">
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;color:var(--gray-500);margin-bottom:4px;">担当</label>
+                <select class="filter-select" id="clerkFilterStaff"></select>
+              </div>
+              <div>
+                <label style="display:block;font-size:12px;color:var(--gray-500);margin-bottom:4px;">種別</label>
+                <select class="filter-select" id="clerkFilterType"></select>
+              </div>
+              <div style="flex:1;min-width:180px;">
+                <label style="display:block;font-size:12px;color:var(--gray-500);margin-bottom:4px;">検索</label>
+                <input type="text" class="filter-select" id="clerkSearch" placeholder="媒介No.・売主・所在地" style="width:100%;">
+              </div>
+            </div>
+          </div>
+          <div class="section-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+              <h3 class="section-title" style="margin:0;">有効媒介契約一覧 <span id="clerkCount" style="font-weight:normal;font-size:13px;color:var(--gray-500);"></span></h3>
+              <div style="display:flex;align-items:center;gap:12px;">
+                <span id="clerkPendingInfo" style="font-size:13px;color:#d97706;"></span>
+                <button class="btn btn-primary" id="btnClerkSave" disabled>保存</button>
+              </div>
+            </div>
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>媒介No.</th>
+                    <th>担当</th>
+                    <th>種別</th>
+                    <th>売主</th>
+                    <th>物件所在地</th>
+                    <th>前回報告日</th>
+                    <th style="text-align:center;">郵送</th>
+                    <th style="text-align:center;">LINE</th>
+                    <th style="text-align:center;">メール</th>
+                    <th style="text-align:center;">その他</th>
+                    <th style="text-align:center;">状態</th>
+                  </tr>
+                </thead>
+                <tbody id="clerkBody"></tbody>
+              </table>
+            </div>
           </div>
         </section>
 
@@ -2564,6 +2619,7 @@
       sort: { key: DEFAULT_CONTRACT_SORT_KEY, dir: "desc" },
       editingId: null,
       operationLoading: false,
+      clerk: { date: "", reports: {}, lastSent: {}, pending: {}, loading: false },
       chart: null,
       storeTrendChart: null,
       storeStaffCompareChart: null,
@@ -2802,6 +2858,7 @@
         renderStaffSummary();
         renderByStaffTables();
       }
+      if (page === "clerk") initClerkPage();
       if (page === "settings") renderGoalSettingsForm();
       if (page === "admin") renderAdminTable();
     }
@@ -4778,6 +4835,187 @@
             <td><button class="btn btn-outline" data-action="edit" data-id="${c.id}">編集</button></td>
           </tr>`).join("");
       body.querySelectorAll("button[data-action='edit']").forEach((btn) => btn.addEventListener("click", () => handleRowAction("edit", btn.dataset.id)));
+    }
+
+    // ------------------------------------------------------------
+    // 事務員メニュー（業務処理報告書）
+    // ------------------------------------------------------------
+    const CLERK_METHODS = ["sent_post", "sent_line", "sent_email", "sent_other"];
+    let clerkWired = false;
+
+    function clerkTodayStr() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    }
+
+    function clerkEmptyFlags() {
+      return { sent_post: false, sent_line: false, sent_email: false, sent_other: false };
+    }
+
+    function clerkSavedFlags(id) {
+      const rec = state.clerk.reports[id];
+      if (!rec) return clerkEmptyFlags();
+      return { sent_post: !!rec.sent_post, sent_line: !!rec.sent_line, sent_email: !!rec.sent_email, sent_other: !!rec.sent_other };
+    }
+
+    function clerkEffectiveFlags(id) {
+      return state.clerk.pending[id] ? { ...state.clerk.pending[id] } : clerkSavedFlags(id);
+    }
+
+    function clerkHasPending() {
+      return Object.keys(state.clerk.pending).length > 0;
+    }
+
+    function initClerkPage() {
+      if (!state.clerk.date) state.clerk.date = clerkTodayStr();
+      if (!clerkWired) {
+        clerkWired = true;
+        el("clerkDate").addEventListener("change", async () => {
+          const newDate = el("clerkDate").value;
+          if (!newDate) { el("clerkDate").value = state.clerk.date; return; }
+          if (newDate === state.clerk.date) return;
+          if (clerkHasPending() && !confirm("未保存のチェックがあります。破棄して日付を変更しますか？")) {
+            el("clerkDate").value = state.clerk.date;
+            return;
+          }
+          state.clerk.date = newDate;
+          state.clerk.pending = {};
+          await loadClerkReports();
+          renderClerkTable();
+        });
+        ["clerkFilterStaff", "clerkFilterType", "clerkSearch"].forEach((id) => {
+          el(id).addEventListener("input", renderClerkTable);
+        });
+        el("btnClerkSave").addEventListener("click", saveClerkReports);
+      }
+      el("clerkDate").value = state.clerk.date;
+      renderClerkFilters();
+      loadClerkReports().then(renderClerkTable);
+    }
+
+    function renderClerkFilters() {
+      const staffSelect = el("clerkFilterStaff");
+      const staffValue = staffSelect.value;
+      staffSelect.innerHTML = '<option value="">担当（すべて）</option>';
+      (state.masters["担当"] || []).forEach((name) => staffSelect.insertAdjacentHTML("beforeend", `<option value="${name}">${name}</option>`));
+      staffSelect.value = staffValue;
+
+      const typeSelect = el("clerkFilterType");
+      const typeValue = typeSelect.value;
+      typeSelect.innerHTML = '<option value="">種別（すべて）</option>';
+      (state.masters["種別"] || []).forEach((t) => typeSelect.insertAdjacentHTML("beforeend", `<option value="${t}">${t}</option>`));
+      typeSelect.value = typeValue;
+    }
+
+    async function loadClerkReports() {
+      state.clerk.loading = true;
+      try {
+        const res = await apiFetch(`/api/weekly-reports?date=${encodeURIComponent(state.clerk.date)}`);
+        state.clerk.reports = res.reports || {};
+        state.clerk.lastSent = res.last_sent || {};
+      } catch (err) {
+        console.error(err);
+        alert(`送付記録の取得に失敗しました: ${err.message}`);
+      } finally {
+        state.clerk.loading = false;
+      }
+    }
+
+    function getClerkContracts() {
+      const staff = el("clerkFilterStaff").value;
+      const type = el("clerkFilterType").value;
+      const query = el("clerkSearch").value.trim().toLowerCase();
+      return getDefaultSortedContracts(state.contracts).filter((c) => {
+        if (staff && c.staff !== staff) return false;
+        if (type && c.type !== type) return false;
+        if (query) {
+          const haystack = [c.id, c.staff, c.type, c.owner, c.address].map((v) => v || "").join(" ").toLowerCase();
+          if (!haystack.includes(query)) return false;
+        }
+        return true;
+      });
+    }
+
+    function renderClerkTable() {
+      const body = el("clerkBody");
+      if (!body) return;
+      const contracts = getClerkContracts();
+      el("clerkCount").textContent = `${contracts.length}件`;
+
+      body.innerHTML = contracts.length === 0
+        ? '<tr><td colspan="11" style="text-align:center;padding:20px;color:var(--gray-500);">対象の媒介契約がありません</td></tr>'
+        : contracts.map((c) => {
+          const flags = clerkEffectiveFlags(c.id);
+          const saved = state.clerk.reports[c.id];
+          const isPending = !!state.clerk.pending[c.id];
+          const anyChecked = CLERK_METHODS.some((m) => flags[m]);
+          let statusHtml = "-";
+          if (isPending) statusHtml = '<span class="badge" style="background:#fef3c7;color:#92400e;">未保存</span>';
+          else if (saved && anyChecked) statusHtml = '<span class="badge" style="background:#d1fae5;color:#065f46;">済</span>';
+          const checkboxes = CLERK_METHODS.map((m) =>
+            `<td style="text-align:center;"><input type="checkbox" data-clerk-id="${c.id}" data-clerk-method="${m}" ${flags[m] ? "checked" : ""} style="width:18px;height:18px;cursor:pointer;"></td>`
+          ).join("");
+          return `<tr>
+            <td>${c.id}</td>
+            <td>${c.staff || "-"}</td>
+            <td><span class="badge type-${c.type || ""}">${c.type || "-"}</span></td>
+            <td>${c.owner || "-"}</td>
+            <td class="address">${c.address || "-"}</td>
+            <td>${formatDateDisplay(state.clerk.lastSent[c.id]) || "-"}</td>
+            ${checkboxes}
+            <td style="text-align:center;">${statusHtml}</td>
+          </tr>`;
+        }).join("");
+
+      body.querySelectorAll("input[data-clerk-id]").forEach((cb) => {
+        cb.addEventListener("change", () => {
+          const id = cb.dataset.clerkId;
+          const flags = clerkEffectiveFlags(id);
+          flags[cb.dataset.clerkMethod] = cb.checked;
+          const saved = clerkSavedFlags(id);
+          const same = CLERK_METHODS.every((m) => flags[m] === saved[m]);
+          if (same) {
+            delete state.clerk.pending[id];
+          } else {
+            state.clerk.pending[id] = flags;
+          }
+          renderClerkTable();
+        });
+      });
+
+      updateClerkSaveState();
+    }
+
+    function updateClerkSaveState() {
+      const count = Object.keys(state.clerk.pending).length;
+      el("btnClerkSave").disabled = count === 0;
+      el("clerkPendingInfo").textContent = count > 0 ? `未保存の変更: ${count}件` : "";
+    }
+
+    async function saveClerkReports() {
+      const entries = Object.entries(state.clerk.pending).map(([contractId, flags]) => ({
+        contract_id: contractId,
+        ...flags,
+      }));
+      if (entries.length === 0) return;
+      if (!confirm(`報告日 ${formatDateDisplay(state.clerk.date)} で ${entries.length}件を保存します。よろしいですか？`)) return;
+      const btn = el("btnClerkSave");
+      btn.disabled = true;
+      try {
+        const res = await apiFetch("/api/weekly-reports", {
+          method: "POST",
+          body: JSON.stringify({ report_date: state.clerk.date, entries }),
+        });
+        state.clerk.reports = res.reports || {};
+        state.clerk.lastSent = res.last_sent || {};
+        state.clerk.pending = {};
+        renderClerkTable();
+        alert("保存しました");
+      } catch (err) {
+        console.error(err);
+        alert(`保存に失敗しました: ${err.message}`);
+        btn.disabled = false;
+      }
     }
 
     function renderClosedTable() {
