@@ -14,6 +14,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"></script>
   <style>
     :root {
       --primary-color: #1a56db;
@@ -860,6 +861,50 @@
     }
     .customer-detail-value {
       color: var(--gray-900);
+    }
+
+    /* 連絡時間希望サービス URL・QR */
+    .contact-link-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .contact-link-chip {
+      padding: 5px 10px;
+      border: 1px solid var(--gray-300);
+      background: #fff;
+      color: var(--gray-700);
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .contact-link-chip:hover {
+      background: var(--gray-100);
+    }
+    .contact-link-chip.active {
+      background: var(--primary-color);
+      border-color: var(--primary-color);
+      color: #fff;
+    }
+    .contact-link-result {
+      margin-top: 14px;
+      padding: 12px;
+      background: var(--gray-50);
+      border: 1px solid var(--gray-200);
+      border-radius: 8px;
+      text-align: center;
+    }
+    .contact-link-url {
+      font-size: 12px;
+      word-break: break-all;
+      color: var(--gray-700);
+      margin-bottom: 10px;
+    }
+    .contact-link-issued {
+      font-size: 11px;
+      color: var(--gray-500);
+      margin-top: 8px;
     }
 
     .pagination-btn {
@@ -1709,8 +1754,27 @@
       </div>
       <div class="modal-actions">
         <button type="button" class="btn btn-outline" data-close="modalCustomerDetail">閉じる</button>
+        <button type="button" class="btn btn-outline" id="btnContactLinkFromDetail">連絡時間希望URL</button>
         <button type="button" class="btn btn-primary" id="btnEditCustomerFromDetail">編集</button>
         <button type="button" class="btn btn-danger" id="btnDeleteCustomerFromDetail">削除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 連絡時間希望サービス URL・QRモーダル -->
+  <div class="modal-backdrop hidden" id="modalContactLink">
+    <div class="modal" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3 class="modal-title">連絡時間希望ｻｰﾋﾞｽ URL・QR</h3>
+        <button class="modal-close" data-close="modalContactLink">×</button>
+      </div>
+      <div class="modal-body" id="contactLinkBody">
+        <!-- 動的に表示 -->
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" data-close="modalContactLink">閉じる</button>
+        <button type="button" class="btn btn-outline" id="btnReissueContactLink">再発行</button>
+        <button type="button" class="btn btn-primary" id="btnCopyContactLink">URLをｺﾋﾟｰ</button>
       </div>
     </div>
   </div>
@@ -7870,6 +7934,203 @@
       }
     }
 
+    // ================== 連絡時間希望サービス URL・QR ==================
+    const CONTACT_LINK_COMPANY_NAME = "センチュリー21 ミライズ不動産";
+
+    // 連絡時間希望サービス側の deal_type と用件（config.js と同じ内容）
+    const CONTACT_LINK_DEAL_LABELS = { sell: "売", buy: "買", other: "その他" };
+    const CONTACT_LINK_INTENTS = {
+      sell: [
+        { key: "desk_valuation", label: "机上査定" },
+        { key: "visit_valuation", label: "訪問査定" },
+        { key: "consult", label: "相談" },
+        { key: "market_check", label: "相場確認" },
+      ],
+      buy: [
+        { key: "docs_email", label: "資料請求(ﾒｰﾙ)" },
+        { key: "docs_post", label: "資料請求(郵送)" },
+        { key: "consult", label: "相談" },
+        { key: "viewing", label: "内覧希望" },
+      ],
+      other: [
+        { key: "meeting", label: "訪問・立会" },
+        { key: "call_only", label: "電話連絡" },
+      ],
+    };
+
+    let contactLinkState = { customer: null, dealType: "sell", presetIntent: null, result: null };
+
+    function openContactLinkModal() {
+      const customer = customerState.editingCustomer;
+      if (!customer) {
+        alert("顧客が選択されていません");
+        return;
+      }
+      const saved = (customer.exclusion_data || {}).contact_time || null;
+      contactLinkState = {
+        customer: customer,
+        dealType: saved ? saved.deal_type : (customerState.category === "sell" ? "sell" : "buy"),
+        presetIntent: saved ? (saved.preset_intent || null) : null,
+        result: saved,
+        pendingReissue: false,
+      };
+      renderContactLinkBody();
+      openModal("modalContactLink");
+      if (saved) renderContactLinkQr(saved.url);
+    }
+
+    function renderContactLinkBody() {
+      const state = contactLinkState;
+      const customer = state.customer;
+      const displayValue = (value) => escapeHtml(toHalfwidthKana(value || "-"));
+
+      let html = `<div class="customer-detail-grid" style="margin-bottom:14px;">
+        <div class="customer-detail-label">案件番号</div><div class="customer-detail-value">${displayValue(customer.case_number)}</div>
+        <div class="customer-detail-label">氏名</div><div class="customer-detail-value">${displayValue(customer.customer_name)}</div>
+        <div class="customer-detail-label">担当者</div><div class="customer-detail-value">${displayValue(customer.staff_id)}</div>
+      </div>`;
+
+      html += `<div class="form-group" style="margin-bottom:12px;">
+        <label>種類</label>
+        <div class="contact-link-chips">`;
+      ["sell", "buy", "other"].forEach((deal) => {
+        const cls = state.dealType === deal ? "contact-link-chip active" : "contact-link-chip";
+        html += `<button type="button" class="${cls}" onclick="setContactLinkDealType('${deal}')">${CONTACT_LINK_DEAL_LABELS[deal]}</button>`;
+      });
+      html += `</div></div>`;
+
+      html += `<div class="form-group">
+        <label>用件</label>
+        <div class="contact-link-chips">`;
+      const noPresetCls = state.presetIntent === null ? "contact-link-chip active" : "contact-link-chip";
+      html += `<button type="button" class="${noPresetCls}" onclick="setContactLinkIntent(null)">顧客に選んでもらう</button>`;
+      CONTACT_LINK_INTENTS[state.dealType].forEach((intent) => {
+        const cls = state.presetIntent === intent.key ? "contact-link-chip active" : "contact-link-chip";
+        html += `<button type="button" class="${cls}" onclick="setContactLinkIntent('${intent.key}')">${intent.label}</button>`;
+      });
+      html += `</div></div>`;
+
+      if (state.result) {
+        html += `<div class="contact-link-result">
+          <div class="contact-link-url">${escapeHtml(state.result.url)}</div>
+          <canvas id="contactLinkQr"></canvas>
+          <div id="contactLinkQrFallback" class="contact-link-issued hidden">QRの生成に失敗しました（通信環境をご確認ください）</div>
+          <div style="margin-top:10px;">
+            <button type="button" class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="copyContactLinkSms()">SMS文面をｺﾋﾟｰ</button>
+          </div>
+          <div class="contact-link-issued">発行日時: ${state.result.issued_at ? state.result.issued_at.replace("T", " ").slice(0, 16) : "-"}</div>
+        </div>`;
+      } else {
+        const isReissue = !!state.pendingReissue;
+        html += `<div class="contact-link-result">
+          <button type="button" class="btn btn-primary" onclick="issueContactLink(${isReissue})">${isReissue ? "新しいURLを発行する" : "URLを発行する"}</button>
+          <div class="contact-link-issued">発行すると顧客が回答できるURLとQRが作成されます</div>
+        </div>`;
+      }
+
+      el("contactLinkBody").innerHTML = html;
+      el("btnReissueContactLink").classList.toggle("hidden", !state.result);
+    }
+
+    function setContactLinkDealType(dealType) {
+      if (contactLinkState.result) {
+        alert("発行済みです。種類を変更するには「再発行」を押してください");
+        return;
+      }
+      contactLinkState.dealType = dealType;
+      contactLinkState.presetIntent = null;
+      renderContactLinkBody();
+    }
+
+    function setContactLinkIntent(intentKey) {
+      if (contactLinkState.result) {
+        alert("発行済みです。用件を変更するには「再発行」を押してください");
+        return;
+      }
+      contactLinkState.presetIntent = intentKey;
+      renderContactLinkBody();
+    }
+
+    function renderContactLinkQr(url) {
+      // モーダル表示直後はレイアウトが確定していないため次フレームで描画する
+      requestAnimationFrame(() => {
+        const canvas = el("contactLinkQr");
+        if (!canvas) return;
+        const showFallback = () => {
+          canvas.classList.add("hidden");
+          const fallback = el("contactLinkQrFallback");
+          if (fallback) fallback.classList.remove("hidden");
+        };
+        if (!window.QRious) {
+          showFallback();
+          return;
+        }
+        try {
+          new QRious({ element: canvas, value: url, size: 180, level: "M", padding: 8 });
+        } catch (err) {
+          showFallback();
+        }
+      });
+    }
+
+    async function issueContactLink(forceNew) {
+      const state = contactLinkState;
+      try {
+        const res = await apiFetch(
+          `/api/customers/${customerState.category}/${customerState.year}/${state.customer.id}/contact-link`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              deal_type: state.dealType,
+              preset_intent: state.presetIntent,
+              force_new: !!forceNew,
+            }),
+          }
+        );
+        state.result = res.contact_time;
+        state.pendingReissue = false;
+        state.dealType = res.contact_time.deal_type;
+        state.presetIntent = res.contact_time.preset_intent || null;
+        // 手元の顧客データにも反映（再度開いたときに同じURLを表示するため）
+        state.customer.exclusion_data = Object.assign({}, state.customer.exclusion_data || {}, {
+          contact_time: res.contact_time,
+        });
+        renderContactLinkBody();
+        renderContactLinkQr(res.contact_time.url);
+      } catch (err) {
+        alert("URLの発行に失敗しました: " + (err.message || err));
+      }
+    }
+
+    function copyContactLinkUrl() {
+      const state = contactLinkState;
+      if (!state.result) {
+        alert("先にURLを発行してください");
+        return;
+      }
+      navigator.clipboard.writeText(state.result.url).then(() => {
+        const btn = el("btnCopyContactLink");
+        const original = btn.textContent;
+        btn.textContent = "ｺﾋﾟｰしました!";
+        setTimeout(() => { btn.textContent = original; }, 2000);
+      }).catch(() => {
+        alert("コピーに失敗しました。URLを手動で選択してください。");
+      });
+    }
+
+    function copyContactLinkSms() {
+      const state = contactLinkState;
+      if (!state.result) return;
+      const staffName = state.customer.staff_id || "";
+      const text = `${CONTACT_LINK_COMPANY_NAME}の${staffName}です。お電話がつながらなかったためご連絡いたしました。`
+        + `改めてお電話いたしますので、ご都合のよい時間帯がございましたら以下からご登録ください。\n${state.result.url}`;
+      navigator.clipboard.writeText(text).then(() => {
+        alert("SMS文面をｺﾋﾟｰしました");
+      }).catch(() => {
+        alert("コピーに失敗しました");
+      });
+    }
+
     async function saveCustomer(e) {
       e.preventDefault();
       const form = el("customerForm");
@@ -8062,6 +8323,17 @@
       }
     });
     el("btnDeleteCustomerFromDetail").addEventListener("click", deleteCustomer);
+    el("btnContactLinkFromDetail").addEventListener("click", () => {
+      closeModal("modalCustomerDetail");
+      openContactLinkModal();
+    });
+    el("btnCopyContactLink").addEventListener("click", copyContactLinkUrl);
+    el("btnReissueContactLink").addEventListener("click", () => {
+      if (!confirm("新しいURLを発行します。\n※以前のURLも有効なまま残ります。よろしいですか?")) return;
+      contactLinkState.result = null;
+      contactLinkState.pendingReissue = true;
+      renderContactLinkBody();
+    });
     el("btnEmailAnalysis").addEventListener("click", openEmailAnalysisModal);
     el("emailAnalysisInput").addEventListener("input", analyzeEmailContent);
     el("btnApplyEmailAnalysis").addEventListener("click", applyEmailAnalysisToForm);

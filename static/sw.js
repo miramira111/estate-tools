@@ -1,8 +1,9 @@
-const CACHE_NAME = "estate-tools-v20260719-1";
+const CACHE_NAME = "estate-tools-v20260725-1";
 const STATIC_ASSETS = [
   "/static/logo.jpg",
   "https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap",
-  "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"
+  "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js",
+  "https://cdn.jsdelivr.net/npm/qrious@4.0.2/dist/qrious.min.js"
 ];
 
 self.addEventListener("install", (event) => {

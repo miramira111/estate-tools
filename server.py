@@ -11,6 +11,10 @@ import io
 import json
 import os
 import re
+import secrets
+import urllib.error
+import urllib.parse
+import urllib.request
 from datetime import date, datetime, timedelta
 from functools import wraps
 
@@ -2544,6 +2548,205 @@ def api_generate_case_number(category, year):
     inquiry_date = datetime.now().strftime("%Y-%m-%d")
     case_number = generate_case_number_for_date(category, year, inquiry_date, existing_customers)
     return jsonify({"case_number": case_number})
+
+
+# ------------------------------------------------------------
+# 連絡時間希望サービス連携（別Supabaseプロジェクト）
+# ------------------------------------------------------------
+# 顧客管理から「連絡時間希望サービス」の回答URLを発行する。
+# 連絡時間希望サービスは別のSupabaseプロジェクトのため、
+# service_role キーで PostgREST を呼び出して link_tokens に登録する。
+# service_role キーはサーバー側のみで保持し、フロントには絶対に渡さない。
+
+# 紛らわしい文字（0/O/1/l/I）を除いた8桁トークン（連絡時間希望サービス側と同じ文字種）
+CONTACT_LINK_TOKEN_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789"
+
+# estatetool のカテゴリ → 連絡時間希望サービスの deal_type
+CONTACT_LINK_DEAL_TYPE_MAP = {"sell": "sell", "buy": "buy", "investment": "buy"}
+
+# deal_type ごとに許可される用件（連絡時間希望サービスの CHECK 制約と同じ）
+CONTACT_LINK_VALID_INTENTS = {
+    "sell": ("desk_valuation", "visit_valuation", "consult", "market_check"),
+    "buy": ("docs_email", "docs_post", "consult", "viewing"),
+    "other": ("meeting", "call_only"),
+}
+
+
+def get_contact_link_config():
+    """連絡時間希望サービスの接続設定を返す（未設定なら None）"""
+    base = (CONFIG.get("CONTACT_LINK_SUPABASE_URL") or "").rstrip("/")
+    key = CONFIG.get("CONTACT_LINK_SERVICE_KEY") or ""
+    origin = (CONFIG.get("CONTACT_LINK_APP_ORIGIN") or "").rstrip("/")
+    if not base or not key or not origin:
+        return None
+    return {"base": base, "key": key, "origin": origin}
+
+
+def contact_link_request(config, method, path, payload=None, prefer=None):
+    """連絡時間希望サービスの PostgREST を service_role キーで呼び出す"""
+    url = f"{config['base']}/rest/v1/{path}"
+    data = json.dumps(payload).encode("utf-8") if payload is not None else None
+    req = urllib.request.Request(url, data=data, method=method)
+    req.add_header("apikey", config["key"])
+    req.add_header("Authorization", f"Bearer {config['key']}")
+    req.add_header("Content-Type", "application/json")
+    if prefer:
+        req.add_header("Prefer", prefer)
+
+    try:
+        with urllib.request.urlopen(req, timeout=10) as res:
+            body = res.read().decode("utf-8")
+            return json.loads(body) if body.strip() else None
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode("utf-8", "ignore")
+        raise RuntimeError(f"連絡時間希望サービスへの通信に失敗しました ({e.code}): {detail}")
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"連絡時間希望サービスに接続できません: {e.reason}")
+
+
+def generate_contact_link_token():
+    return "".join(secrets.choice(CONTACT_LINK_TOKEN_CHARS) for _ in range(8))
+
+
+def build_contact_link_label(customer):
+    """連絡時間希望サービス側の一覧に出す顧客の呼び名"""
+    parts = []
+    if customer.get("case_number"):
+        parts.append(str(customer["case_number"]))
+    name = (customer.get("customer_name") or "").strip()
+    if name:
+        parts.append(f"{name}様")
+    return " ".join(parts) or "顧客"
+
+
+def normalize_staff_name(name):
+    """担当者名を照合用に正規化する
+
+    担当を上書きした顧客は担当者名の先頭に「*」を付ける運用のため、
+    連絡時間希望サービスの employees.name と照合する際は取り除く。
+    （例: 「*尾野」→「尾野」）半角・全角の「*」と前後の空白の両方に対応する。
+    """
+    return re.sub(r"^[*＊\s　]+|[\s　]+$", "", name or "")
+
+
+def build_contact_link_memo(customer, category):
+    """連絡時間希望サービス側のメモ（反響媒体・物件）"""
+    parts = []
+    if customer.get("inquiry_source"):
+        parts.append(str(customer["inquiry_source"]))
+    if category == "sell":
+        prop = customer.get("assessment_address")
+    elif category == "buy":
+        prop = customer.get("target_property")
+    else:
+        prop = customer.get("desired_property")
+    if prop:
+        parts.append(str(prop))
+    return " / ".join(parts) or None
+
+
+@app.route("/api/customers/<category>/<int:year>/<customer_id>/contact-link", methods=["POST"])
+@login_required
+def api_create_contact_link(category, year, customer_id):
+    """顧客に対して連絡時間希望サービスの回答URLを発行する"""
+    if category not in ("sell", "buy", "investment"):
+        return jsonify({"error": "無効なカテゴリです"}), 400
+
+    config = get_contact_link_config()
+    if not config:
+        return jsonify({
+            "error": "連絡時間希望サービスの設定が未登録です（環境変数 CONTACT_LINK_* を確認してください）"
+        }), 503
+
+    customer = get_customer_by_id(category, year, customer_id)
+    if not customer:
+        return jsonify({"error": "顧客が見つかりません"}), 404
+
+    payload = request.get_json() or {}
+
+    deal_type = payload.get("deal_type") or CONTACT_LINK_DEAL_TYPE_MAP[category]
+    if deal_type not in CONTACT_LINK_VALID_INTENTS:
+        return jsonify({"error": "無効な種類です"}), 400
+
+    preset_intent = payload.get("preset_intent") or None
+    if preset_intent and preset_intent not in CONTACT_LINK_VALID_INTENTS[deal_type]:
+        return jsonify({"error": "無効な用件です"}), 400
+
+    exclusion_data = customer.get("exclusion_data") or {}
+    existing = exclusion_data.get("contact_time")
+
+    # 既に発行済みで、再発行指定がなければ既存URLをそのまま返す
+    if existing and existing.get("token") and not payload.get("force_new"):
+        return jsonify({"ok": True, "reused": True, "contact_time": existing})
+
+    # 担当者名から連絡時間希望サービス側の employee_id を解決する
+    # 「*尾野」のように担当上書きの「*」が付いていても照合できるよう正規化する
+    staff_name = normalize_staff_name(customer.get("staff_id")) \
+        or normalize_staff_name(session.get("user_id"))
+    if not staff_name:
+        return jsonify({"error": "担当者が設定されていません"}), 400
+
+    try:
+        employees = contact_link_request(
+            config,
+            "GET",
+            "employees?select=id,name&limit=1&name=eq." + urllib.parse.quote(staff_name),
+        )
+    except RuntimeError as e:
+        return jsonify({"error": str(e)}), 502
+
+    if not employees:
+        return jsonify({
+            "error": f"連絡時間希望サービスに担当者「{staff_name}」が登録されていません"
+        }), 400
+    employee_id = employees[0]["id"]
+
+    # link_tokens に登録（トークン重複時のみ3回までリトライ）
+    token = None
+    last_error = None
+    for _ in range(3):
+        candidate = generate_contact_link_token()
+        try:
+            contact_link_request(
+                config,
+                "POST",
+                "link_tokens",
+                {
+                    "token": candidate,
+                    "customer_label": build_contact_link_label(customer),
+                    "memo": build_contact_link_memo(customer, category),
+                    "employee_id": employee_id,
+                    "deal_type": deal_type,
+                    "preset_intent": preset_intent,
+                },
+                prefer="return=minimal",
+            )
+            token = candidate
+            break
+        except RuntimeError as e:
+            last_error = e
+            if "duplicate key" not in str(e):
+                break
+
+    if not token:
+        return jsonify({"error": str(last_error or "URLの発行に失敗しました")}), 502
+
+    contact_time = {
+        "token": token,
+        "url": f"{config['origin']}/r/{token}",
+        "deal_type": deal_type,
+        "preset_intent": preset_intent,
+        "issued_at": datetime.now().isoformat(),
+        "issued_by": session.get("user_id", ""),
+    }
+
+    # estatetool 側の顧客レコードにも保存（exclusion_data の jsonb を利用／DB変更不要）
+    exclusion_data["contact_time"] = contact_time
+    customer["exclusion_data"] = exclusion_data
+    customer["updated_at"] = datetime.now().isoformat()
+    save_customer(category, year, customer)
+
+    return jsonify({"ok": True, "reused": False, "contact_time": contact_time})
 
 
 @app.route("/api/customers/<category>/<int:year>/export", methods=["GET"])
