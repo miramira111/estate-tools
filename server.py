@@ -15,6 +15,7 @@ import secrets
 import urllib.error
 import urllib.parse
 import urllib.request
+from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 from functools import wraps
 
@@ -92,12 +93,24 @@ USERS = get_users()
 # ------------------------------------------------------------
 # データベース接続
 # ------------------------------------------------------------
+@contextmanager
 def get_db_connection():
-    """データベース接続を取得"""
+    """データベース接続を取得し、ブロック終了時に必ず閉じる
+
+    psycopg2 の `with conn:` は commit/rollback を行うだけで接続を閉じない。
+    以前はここで素の接続を返していたため、リクエストごとに接続が残り続け、
+    Supabase の接続上限に達して 502 になっていた。
+    """
     if not DATABASE_URL:
         raise RuntimeError("DATABASE_URL is not set")
     conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
-    return conn
+    try:
+        yield conn
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 # ------------------------------------------------------------
