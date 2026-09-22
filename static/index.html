@@ -377,6 +377,8 @@
     .fu-btn.sms { background: #dbeafe; border-color: #93c5fd; color: #1e40af; }
     .fu-btn.callback { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
     .fu-btn.history { background: #fff; color: var(--gray-600); }
+    .fu-btn.memo { background: #f5f3ff; border-color: #c4b5fd; color: #5b21b6; }
+    .fu-btn.task { background: #fff7ed; border-color: #fdba74; color: #9a3412; }
     .fu-result { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
     .fu-result.通話 { background: #d1fae5; color: #065f46; }
     .fu-result.不在 { background: #fee2e2; color: #991b1b; }
@@ -9017,7 +9019,9 @@
       html += btn("SMS", "sms", "SMS");
       if (opts.withCallback) html += btn("折り返し", "callback", "折り返しあり");
       if (opts.withHistory !== false) {
-        html += `<button type="button" class="fu-btn history" title="追客履歴・ﾒﾓ" onclick="event.stopPropagation(); openFollowUpHistory(${ctx})">履歴</button>`;
+        html += `<button type="button" class="fu-btn memo" title="メモを追加" onclick="event.stopPropagation(); openFollowUpHistory(${ctx}, 'memo')">📝ﾒﾓ</button>`;
+        html += `<button type="button" class="fu-btn task" title="次回タスクを追加" onclick="event.stopPropagation(); openFollowUpHistory(${ctx}, 'task')">📌ﾀｽｸ</button>`;
+        html += `<button type="button" class="fu-btn history" title="追客履歴" onclick="event.stopPropagation(); openFollowUpHistory(${ctx})">履歴</button>`;
       }
       html += '</span>';
       if (customerState.followUpJustSaved[customerId]) html += '<span class="fu-saved">✓保存</span>';
@@ -9085,7 +9089,7 @@
     // ---- 追客履歴モーダル ----
     let followUpHistoryTarget = null; // { customerId, category, year }
 
-    async function openFollowUpHistory(customerId, category, year) {
+    async function openFollowUpHistory(customerId, category, year, focus) {
       followUpHistoryTarget = { customerId, category, year };
       const c = customerState.customers.find(x => x.id === customerId);
       const name = c ? toHalfwidthKana(c.customer_name || "") : "";
@@ -9094,6 +9098,9 @@
       el("followUpMemoInput").value = "";
       resetFollowUpTaskForm(c);
       openModal("modalFollowUpHistory");
+      // ﾒﾓ / ﾀｽｸ ボタンから開いた場合は該当の入力欄へ
+      if (focus === "memo") el("followUpMemoInput").focus();
+      else if (focus === "task") el("followUpTaskContent").focus();
       await Promise.all([renderFollowUpHistory(customerId), renderFollowUpTasks(customerId)]);
     }
 
