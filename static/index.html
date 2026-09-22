@@ -324,6 +324,80 @@
       background: var(--gray-100);
     }
 
+    /* ステータス複数絞り込みドロップダウン */
+    .status-multi-wrapper { position: relative; }
+    .status-multi-btn { cursor: pointer; text-align: left; white-space: nowrap; }
+    .status-multi-btn.active { border-color: var(--primary-color); color: var(--primary-color); font-weight: 600; }
+    .status-multi-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      min-width: 220px;
+      background: #fff;
+      border: 1px solid var(--gray-200);
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 1000;
+      font-size: 13px;
+    }
+    .status-multi-mode {
+      display: flex;
+      gap: 12px;
+      padding: 8px 12px;
+      background: var(--gray-50);
+      border-bottom: 1px solid var(--gray-200);
+    }
+    .status-multi-mode label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+    .status-multi-list { max-height: 260px; overflow-y: auto; padding: 6px 8px; }
+    .status-multi-list label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 4px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .status-multi-list label:hover { background: var(--gray-100); }
+    .status-multi-footer {
+      padding: 6px 8px;
+      border-top: 1px solid var(--gray-200);
+      display: flex;
+      justify-content: flex-end;
+    }
+    .status-multi-footer .btn { padding: 4px 10px; font-size: 12px; }
+
+    /* 追客モード */
+    .btn.btn-outline.follow-up-toggle.active, .btn.btn-outline.follow-up-toggle.active:hover { background: var(--primary-color); color: #fff; border-color: var(--primary-color); }
+    .fu-btns { display: inline-flex; gap: 4px; white-space: nowrap; }
+    .fu-btn { padding: 5px 10px; font-size: 12px; font-weight: 600; border-radius: 6px; border: 1px solid var(--gray-300); background: #fff; cursor: pointer; line-height: 1.2; }
+    .fu-btn:hover { filter: brightness(0.95); }
+    .fu-btn:disabled { opacity: 0.5; cursor: default; }
+    .fu-btn.call { background: #d1fae5; border-color: #6ee7b7; color: #065f46; }
+    .fu-btn.absent { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
+    .fu-btn.sms { background: #dbeafe; border-color: #93c5fd; color: #1e40af; }
+    .fu-btn.callback { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
+    .fu-btn.history { background: #fff; color: var(--gray-600); }
+    .fu-result { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+    .fu-result.通話 { background: #d1fae5; color: #065f46; }
+    .fu-result.不在 { background: #fee2e2; color: #991b1b; }
+    .fu-result.SMS { background: #dbeafe; color: #1e40af; }
+    .fu-result.折り返し { background: #fef3c7; color: #92400e; }
+    .fu-last { font-size: 11px; color: var(--gray-600); white-space: nowrap; }
+    .fu-saved { font-size: 11px; color: #16a34a; margin-left: 4px; }
+    .follow-up-history-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+
+    /* 折り返し照合 */
+    .callback-results { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+    .callback-card { border: 1px solid var(--gray-200); border-left: 5px solid var(--gray-300); border-radius: 8px; padding: 12px 14px; background: #fff; }
+    .callback-card.absent { border-left-color: var(--danger-color); background: #fff7f7; }
+    .callback-card-head { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-bottom: 6px; }
+    .callback-card-name { font-size: 17px; font-weight: 700; }
+    .callback-card-meta { font-size: 12px; color: var(--gray-600); display: flex; flex-wrap: wrap; gap: 4px 14px; margin-bottom: 8px; }
+    .callback-card-logs { font-size: 12px; color: var(--gray-700); display: flex; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 8px; }
+    .callback-card-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .callback-empty { padding: 16px; text-align: center; color: var(--gray-500); font-size: 13px; }
+    .absent-streak { display: inline-block; min-width: 22px; text-align: center; padding: 1px 6px; border-radius: 10px; background: #fee2e2; color: #991b1b; font-weight: 700; font-size: 12px; }
+
     /* Content */
     .content { padding: 20px; flex: 1; }
     .page-title { margin: 0 0 16px 0; font-size: 18px; font-weight: 700; color: var(--gray-900); }
@@ -980,6 +1054,7 @@
         <li class="menu-item active" data-page="dashboard"><span class="icon">🏠</span><span>ダッシュボード</span></li>
         <li class="menu-item" data-page="contracts"><span class="icon">📋</span><span>媒介契約一覧</span></li>
         <li class="menu-item" data-page="customers"><span class="icon">👥</span><span>顧客管理</span></li>
+        <li class="menu-item" data-page="callback"><span class="icon">📞</span><span>折り返し照合</span></li>
         <li class="menu-item" data-page="deadline"><span class="icon">📅</span><span>期限カレンダー</span></li>
         <li class="menu-item" data-page="register"><span class="icon">✏️</span><span>媒介登録</span></li>
         <li class="menu-item" data-page="closed-contracted"><span class="icon">✅</span><span>成約リスト</span></li>
@@ -1003,6 +1078,7 @@
     </nav>
     <!-- Mobile More Menu -->
     <div class="mobile-nav-more-menu hidden" id="mobileMoreMenu">
+      <button class="mobile-nav-item" data-mob-page="callback"><span class="nav-icon">📞</span><span>折り返し</span></button>
       <button class="mobile-nav-item" data-mob-page="register"><span class="nav-icon">📝</span><span>登録簿</span></button>
       <button class="mobile-nav-item" data-mob-page="closed-contracted"><span class="nav-icon">✅</span><span>成約</span></button>
       <button class="mobile-nav-item" data-mob-page="closed-purchased"><span class="nav-icon">🏷️</span><span>買取</span></button>
@@ -1497,6 +1573,52 @@
           </div>
         </section>
 
+        <!-- 折り返し照合ページ -->
+        <section id="page-callback" class="page-section">
+          <h2 class="page-title">折り返し照合</h2>
+
+          <div class="section-card" style="margin-bottom: 16px;">
+            <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+              <span style="font-size:13px;font-weight:500;">着信番号:</span>
+              <input type="tel" class="search-input" id="callbackPhoneInput" placeholder="電話番号（下4桁以上でOK）" style="min-width:240px;font-size:16px;letter-spacing:1px;" autocomplete="off" inputmode="numeric">
+              <button class="btn btn-primary" id="btnCallbackSearch">照合</button>
+              <button class="btn btn-outline" id="btnCallbackClear">ｸﾘｱ</button>
+              <span id="callbackSearchInfo" style="font-size:12px;color:var(--gray-500);"></span>
+            </div>
+            <div id="callbackResults" class="callback-results"></div>
+          </div>
+
+          <div class="section-card">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
+              <h3 class="section-title" style="margin:0;">不在リスト <span id="absentCount" style="font-size:12px;color:var(--gray-500);font-weight:normal;"></span></h3>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <select class="filter-select" id="absentStaffFilter"><option value="">担当者</option></select>
+                <button class="btn btn-outline" id="btnAbsentReload">更新</button>
+              </div>
+            </div>
+            <p class="stats-subtitle" style="margin-bottom:8px;">最新の追客結果が「不在」の顧客です。通話・折り返しを記録すると自動でこのリストから消えます。</p>
+            <div class="table-container">
+              <table id="absentTable">
+                <thead>
+                  <tr>
+                    <th>最終架電</th>
+                    <th>連続不在</th>
+                    <th>区分</th>
+                    <th>案件番号</th>
+                    <th>氏名</th>
+                    <th>電話番号</th>
+                    <th>担当</th>
+                    <th>ｽﾃｰﾀｽ</th>
+                    <th>かけた人</th>
+                    <th>記録</th>
+                  </tr>
+                </thead>
+                <tbody id="absentBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
         <!-- 顧客管理ページ -->
         <section id="page-customers" class="page-section">
           <h2 class="page-title">顧客管理</h2>
@@ -1519,9 +1641,20 @@
               <select class="filter-select" id="customerStaffFilter">
                 <option value="">担当者</option>
               </select>
-              <select class="filter-select" id="customerStatusFilter">
-                <option value="">ｽﾃｰﾀｽ</option>
-              </select>
+              <!-- ステータス複数絞り込み（OR / 除外） -->
+              <div class="status-multi-wrapper" id="customerStatusFilterWrap">
+                <button type="button" class="filter-select status-multi-btn" id="customerStatusFilterBtn" aria-haspopup="true" aria-expanded="false">ｽﾃｰﾀｽ ▾</button>
+                <div class="status-multi-dropdown hidden" id="customerStatusFilterDropdown">
+                  <div class="status-multi-mode">
+                    <label><input type="radio" name="customerStatusMode" value="include" checked> 含む(いずれか)</label>
+                    <label><input type="radio" name="customerStatusMode" value="exclude"> 除外</label>
+                  </div>
+                  <div class="status-multi-list" id="customerStatusFilterList"></div>
+                  <div class="status-multi-footer">
+                    <button type="button" class="btn btn-outline" id="customerStatusFilterClear">ｸﾘｱ</button>
+                  </div>
+                </div>
+              </div>
               <div class="date-range">
                 <span class="date-icon">📅</span>
                 <input type="date" class="date-input" id="customerDateFrom">
@@ -1530,6 +1663,7 @@
               </div>
               <input type="text" class="search-input" id="customerKeyword" placeholder="ﾌﾘｰﾜｰﾄﾞ検索（氏名・住所・電話番号）" style="min-width: 250px;">
               <button class="btn btn-outline" id="btnCustomerReset">ﾘｾｯﾄ</button>
+              <button class="btn btn-outline follow-up-toggle" id="btnFollowUpMode" title="通話・不在・SMSをワンタップで記録">📞 追客ﾓｰﾄﾞ</button>
               <div style="margin-left: auto; display: flex; gap: 8px; align-items: center;">
                 <select class="filter-select" id="customerPerPage" style="min-width: 80px;">
                   <option value="20">20件</option>
@@ -1864,6 +1998,29 @@
           <button type="submit" class="btn btn-primary">保存</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- 追客履歴モーダル -->
+  <div class="modal-backdrop hidden" id="modalFollowUpHistory">
+    <div class="modal" style="max-width:560px;">
+      <div class="modal-header">
+        <h3 class="modal-title" id="followUpHistoryTitle">追客履歴</h3>
+        <button class="modal-close" data-close="modalFollowUpHistory">×</button>
+      </div>
+      <div class="follow-up-history-actions" id="followUpHistoryActions"></div>
+      <div class="table-container" style="max-height:360px;overflow-y:auto;">
+        <table>
+          <thead><tr><th>日時</th><th>結果</th><th>かけた人</th><th>ﾒﾓ</th><th></th></tr></thead>
+          <tbody id="followUpHistoryBody"></tbody>
+        </table>
+      </div>
+      <div class="form-group" style="margin-top:10px;">
+        <input type="text" class="search-input" id="followUpMemoInput" placeholder="ﾒﾓ（任意）— 次に押す結果ボタンと一緒に保存されます" style="width:100%;">
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-outline" data-close="modalFollowUpHistory">閉じる</button>
+      </div>
     </div>
   </div>
 
@@ -6626,7 +6783,12 @@
       duplicateCheckRules: {},
       sourceDeadlines: {},
       duplicateResults: {},
-      analyticsCharts: {}
+      analyticsCharts: {},
+      statusFilter: [],          // 選択中ステータス（複数）
+      statusFilterMode: "include", // include: いずれかに該当(OR) / exclude: 除外(NOT)
+      followUpMode: false,       // 追客モード ON/OFF
+      followUpLatest: {},        // customer_id → 最新追客ログ {result, called_by, called_at, count}
+      followUpJustSaved: {}      // customer_id → true（保存直後の「保存」表示用）
     };
 
     async function initCustomerPage() {
@@ -6699,10 +6861,14 @@
         ? (masters.inquiry_source_sell || [])
         : (masters.inquiry_source_buy || []);
 
-      // ステータスフィルター
-      const statusFilter = el("customerStatusFilter");
-      statusFilter.innerHTML = '<option value="">ｽﾃｰﾀｽ</option>' +
-        statusList.map(s => `<option value="${s}">${toHalfwidthKana(s)}</option>`).join("");
+      // ステータスフィルター（複数選択チェックボックス）
+      // カテゴリ切替でステータス一覧が変わるため、選択済みのうち存在しないものは落とす
+      const statusFilterList = el("customerStatusFilterList");
+      customerState.statusFilter = (customerState.statusFilter || []).filter(s => statusList.includes(s));
+      statusFilterList.innerHTML = statusList.map(s =>
+        `<label><input type="checkbox" value="${escapeHtml(s)}"${customerState.statusFilter.includes(s) ? " checked" : ""}> ${toHalfwidthKana(s)}</label>`
+      ).join("") || '<div style="padding:6px 4px;color:var(--gray-500);">ｽﾃｰﾀｽ未登録</div>';
+      updateCustomerStatusFilterLabel();
 
       // 担当者フィルター（マスターから取得）
       const staffFilter = el("customerStaffFilter");
@@ -7048,13 +7214,16 @@
       try {
         const params = new URLSearchParams();
         const staff = el("customerStaffFilter").value;
-        const status = el("customerStatusFilter").value;
+        const statuses = customerState.statusFilter || [];
         const keyword = el("customerKeyword").value;
         const dateFrom = el("customerDateFrom").value;
         const dateTo = el("customerDateTo").value;
 
         if (staff) params.append("staff", staff);
-        if (status) params.append("status", status);
+        if (statuses.length > 0) {
+          statuses.forEach(s => params.append("status", s));
+          params.append("status_mode", customerState.statusFilterMode || "include");
+        }
         if (keyword) params.append("keyword", keyword);
         if (dateFrom) params.append("date_from", dateFrom);
         if (dateTo) params.append("date_to", dateTo);
@@ -7064,6 +7233,7 @@
 
         const data = await apiFetch(url);
         customerState.customers = data.customers || [];
+        if (customerState.followUpMode) await loadFollowUpLatest();
         if (resetPage) {
           customerState.currentPage = 1;
         } else {
@@ -7113,6 +7283,11 @@
       const thead = el("customersTableHead");
       const tbody = el("customersBody");
       const cardList = el("customersCardList");
+
+      if (customerState.followUpMode) {
+        renderFollowUpTable(pageCustomers, thead, tbody, cardList);
+        return;
+      }
 
       // カテゴリ別ヘッダー
       const categoryHeaders = {
@@ -8250,7 +8425,7 @@
 
     function resetCustomerFilters() {
       el("customerStaffFilter").value = "";
-      el("customerStatusFilter").value = "";
+      clearCustomerStatusFilter(false);
       el("customerDateFrom").value = "";
       el("customerDateTo").value = "";
       el("customerKeyword").value = "";
@@ -8270,8 +8445,65 @@
 
     // フィルター即時反映（プルダウン変更時）
     el("customerStaffFilter").addEventListener("change", loadCustomers);
-    el("customerStatusFilter").addEventListener("change", loadCustomers);
     el("customerDateFrom").addEventListener("change", loadCustomers);
+
+    // ステータス複数絞り込み（OR / 除外）
+    function updateCustomerStatusFilterLabel() {
+      const btn = el("customerStatusFilterBtn");
+      const selected = customerState.statusFilter || [];
+      if (selected.length === 0) {
+        btn.textContent = "ｽﾃｰﾀｽ ▾";
+        btn.classList.remove("active");
+        return;
+      }
+      const prefix = customerState.statusFilterMode === "exclude" ? "除外" : "ｽﾃｰﾀｽ";
+      btn.textContent = `${prefix}(${selected.length}) ▾`;
+      btn.classList.add("active");
+    }
+
+    function clearCustomerStatusFilter(reload = true) {
+      customerState.statusFilter = [];
+      customerState.statusFilterMode = "include";
+      el("customerStatusFilterList").querySelectorAll('input[type="checkbox"]').forEach(cb => { cb.checked = false; });
+      const includeRadio = document.querySelector('input[name="customerStatusMode"][value="include"]');
+      if (includeRadio) includeRadio.checked = true;
+      updateCustomerStatusFilterLabel();
+      if (reload) loadCustomers();
+    }
+
+    el("customerStatusFilterBtn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      const dd = el("customerStatusFilterDropdown");
+      dd.classList.toggle("hidden");
+      el("customerStatusFilterBtn").setAttribute("aria-expanded", dd.classList.contains("hidden") ? "false" : "true");
+    });
+    // ドロップダウン内クリックは閉じない
+    el("customerStatusFilterDropdown").addEventListener("click", (e) => e.stopPropagation());
+    // 外側クリックで閉じる
+    document.addEventListener("click", () => {
+      const dd = el("customerStatusFilterDropdown");
+      if (!dd.classList.contains("hidden")) {
+        dd.classList.add("hidden");
+        el("customerStatusFilterBtn").setAttribute("aria-expanded", "false");
+      }
+    });
+    // チェック変更 → 即時反映
+    el("customerStatusFilterList").addEventListener("change", () => {
+      customerState.statusFilter = Array.from(
+        el("customerStatusFilterList").querySelectorAll('input[type="checkbox"]:checked')
+      ).map(cb => cb.value);
+      updateCustomerStatusFilterLabel();
+      loadCustomers();
+    });
+    // 含む / 除外 切替 → 即時反映（選択がある場合のみ再取得）
+    document.querySelectorAll('input[name="customerStatusMode"]').forEach(radio => {
+      radio.addEventListener("change", (e) => {
+        customerState.statusFilterMode = e.target.value;
+        updateCustomerStatusFilterLabel();
+        if ((customerState.statusFilter || []).length > 0) loadCustomers();
+      });
+    });
+    el("customerStatusFilterClear").addEventListener("click", () => clearCustomerStatusFilter(true));
     el("customerDateTo").addEventListener("change", loadCustomers);
 
     // キーワード検索（Enter or 入力後少し待って反映）
@@ -8662,12 +8894,383 @@
       closeModal("modalEmailAnalysis");
     }
 
+    // ============================================================
+    // 追客モード（顧客管理）
+    // ============================================================
+    const FOLLOW_UP_RESULT_LABELS = { "通話": "通話", "不在": "不在", "SMS": "SMS", "折り返し": "折返" };
+
+    function formatFollowUpAt(iso) {
+      // 例: 09/22 11:05
+      if (!iso) return "-";
+      const d = new Date(iso);
+      if (isNaN(d)) return iso;
+      return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    }
+
+    function renderFollowUpResultBadge(result) {
+      if (!result) return '<span class="fu-last">未追客</span>';
+      return `<span class="fu-result ${escapeHtml(result)}">${escapeHtml(FOLLOW_UP_RESULT_LABELS[result] || result)}</span>`;
+    }
+
+    // 結果ボタン群（一覧・照合・不在リスト共通）
+    function renderFollowUpButtons(customerId, category, year, opts = {}) {
+      const ctx = `'${customerId}', '${category}', ${Number(year)}`;
+      const from = opts.from || "list";
+      const btn = (result, cls, label) =>
+        `<button type="button" class="fu-btn ${cls}" onclick="event.stopPropagation(); recordFollowUp(${ctx}, '${result}', { from: '${from}' })">${label}</button>`;
+      let html = '<span class="fu-btns">';
+      html += btn("通話", "call", "通話");
+      html += btn("不在", "absent", "不在");
+      html += btn("SMS", "sms", "SMS");
+      if (opts.withCallback) html += btn("折り返し", "callback", "折り返しあり");
+      if (opts.withHistory !== false) {
+        html += `<button type="button" class="fu-btn history" title="追客履歴・ﾒﾓ" onclick="event.stopPropagation(); openFollowUpHistory(${ctx})">履歴</button>`;
+      }
+      html += '</span>';
+      if (customerState.followUpJustSaved[customerId]) html += '<span class="fu-saved">✓保存</span>';
+      return html;
+    }
+
+    async function loadFollowUpLatest() {
+      try {
+        const data = await apiFetch(`/api/follow-ups/latest?category=${customerState.category}&year=${customerState.year}`);
+        customerState.followUpLatest = data.latest || {};
+      } catch (err) {
+        console.error("追客ログ取得エラー:", err);
+        customerState.followUpLatest = {};
+      }
+    }
+
+    async function toggleFollowUpMode() {
+      customerState.followUpMode = !customerState.followUpMode;
+      el("btnFollowUpMode").classList.toggle("active", customerState.followUpMode);
+      if (customerState.followUpMode) await loadFollowUpLatest();
+      renderCustomerTable();
+    }
+
+    function renderFollowUpTable(pageCustomers, thead, tbody, cardList) {
+      thead.innerHTML = `<tr>
+        <th>案件番号</th>
+        <th>ｽﾃｰﾀｽ</th>
+        <th>担当</th>
+        <th>氏名</th>
+        <th>電話番号</th>
+        <th>最終追客</th>
+        <th>回数</th>
+        <th>記録</th>
+      </tr>`;
+
+      if (pageCustomers.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--gray-500);padding:32px;">顧客データがありません</td></tr>`;
+        if (cardList) cardList.innerHTML = '<div style="text-align:center;padding:20px;color:var(--gray-500);">顧客データがありません</div>';
+        return;
+      }
+
+      const category = customerState.category;
+      const year = customerState.year;
+
+      const rowData = (c) => {
+        const last = customerState.followUpLatest[c.id];
+        const statusStyle = getCustomerStatusStyle(c.status);
+        return {
+          last,
+          statusHtml: `<span class="customer-status-badge" style="background:${statusStyle.bg};color:${statusStyle.color};">${c.status ? toHalfwidthKana(c.status) : "-"}</span>`,
+          lastHtml: last
+            ? `${renderFollowUpResultBadge(last.result)} <span class="fu-last">${formatFollowUpAt(last.called_at)} ${escapeHtml(toHalfwidthKana(last.called_by || ""))}</span>`
+            : renderFollowUpResultBadge(""),
+          name: toHalfwidthKana(c.customer_name || "-"),
+          phone: toHalfwidthKana(c.phone || "-"),
+          staff: toHalfwidthKana(c.staff_id || "-"),
+          buttons: renderFollowUpButtons(c.id, category, year, { from: "list" }),
+        };
+      };
+
+      if (isMobileView() && cardList) {
+        cardList.innerHTML = pageCustomers.map(c => {
+          const r = rowData(c);
+          return `<div class="mobile-card" onclick="onCustomerRowClick(event, '${c.id}')" style="cursor:pointer;">
+            <div class="mobile-card-header">
+              <span class="mobile-card-id">${c.case_number || "-"} ${r.statusHtml}</span>
+              <span style="font-size:11px;color:var(--gray-500);">${r.staff}</span>
+            </div>
+            <div class="mobile-card-body">
+              <div class="mobile-card-row"><span class="mobile-card-label">氏名</span><span class="mobile-card-value">${r.name}</span></div>
+              <div class="mobile-card-row"><span class="mobile-card-label">電話</span><span class="mobile-card-value"><a href="tel:${escapeHtml((c.phone || "").replace(/[^\d+]/g, ""))}" onclick="event.stopPropagation();">${r.phone}</a></span></div>
+              <div class="mobile-card-row full"><span class="mobile-card-label">最終追客</span><span class="mobile-card-value">${r.lastHtml}${r.last ? ` <span class="fu-last">(${r.last.count}回)</span>` : ""}</span></div>
+            </div>
+            <div class="mobile-card-actions" style="justify-content:flex-start;">${r.buttons}</div>
+          </div>`;
+        }).join("");
+      }
+
+      tbody.innerHTML = pageCustomers.map(c => {
+        const r = rowData(c);
+        const rowStyle = r.last && r.last.result === "不在" ? "background-color:#fff7f7;" : "";
+        return `<tr style="cursor:pointer;${rowStyle}" onclick="onCustomerRowClick(event, '${c.id}')">
+          <td style="white-space:nowrap;">${c.case_number || "-"}</td>
+          <td>${r.statusHtml}</td>
+          <td style="white-space:nowrap;">${r.staff}</td>
+          <td style="white-space:nowrap;font-weight:600;">${r.name}</td>
+          <td style="white-space:nowrap;font-size:13px;">${r.phone}</td>
+          <td style="white-space:nowrap;">${r.lastHtml}</td>
+          <td style="text-align:center;">${r.last ? r.last.count : "-"}</td>
+          <td style="white-space:nowrap;">${r.buttons}</td>
+        </tr>`;
+      }).join("");
+    }
+
+    // 結果を保存（いつ・誰が はサーバー側で自動付与）
+    // opts.from: "list"（顧客一覧） / "callback"（照合結果） / "absent"（不在リスト） / "history"（履歴モーダル）
+    async function recordFollowUp(customerId, category, year, result, opts = {}) {
+      const memoInput = el("followUpMemoInput");
+      const memo = opts.from === "history" && memoInput ? memoInput.value.trim() : "";
+      try {
+        const res = await apiFetch("/api/follow-ups", {
+          method: "POST",
+          body: JSON.stringify({ customer_id: customerId, category, year, result, memo }),
+        });
+        const log = res.log;
+
+        // 顧客一覧（追客モード）の表示を更新
+        const prev = customerState.followUpLatest[customerId];
+        customerState.followUpLatest[customerId] = {
+          result: log.result, called_by: log.called_by, called_at: log.called_at,
+          count: (prev ? prev.count : 0) + 1,
+        };
+        customerState.followUpJustSaved[customerId] = true;
+        setTimeout(() => {
+          delete customerState.followUpJustSaved[customerId];
+          if (customerState.followUpMode) renderCustomerTable();
+          if (el("page-callback").classList.contains("active")) { renderAbsentList(); if (callbackState.lastQuery) renderCallbackResults(); }
+        }, 1500);
+        if (customerState.followUpMode) renderCustomerTable();
+
+        if (opts.from === "history") {
+          if (memoInput) memoInput.value = "";
+          await renderFollowUpHistory(customerId);
+        }
+        // 照合ページを表示中なら不在リスト・検索結果も更新
+        if (el("page-callback").classList.contains("active")) {
+          await refreshCallbackPage();
+        }
+      } catch (err) {
+        alert("追客結果の保存に失敗しました: " + (err.message || err));
+      }
+    }
+
+    // ---- 追客履歴モーダル ----
+    let followUpHistoryTarget = null; // { customerId, category, year }
+
+    async function openFollowUpHistory(customerId, category, year) {
+      followUpHistoryTarget = { customerId, category, year };
+      const c = customerState.customers.find(x => x.id === customerId);
+      const name = c ? toHalfwidthKana(c.customer_name || "") : "";
+      el("followUpHistoryTitle").textContent = `追客履歴${name ? " - " + name : ""}`;
+      el("followUpHistoryActions").innerHTML = renderFollowUpButtons(customerId, category, year, { from: "history", withCallback: true, withHistory: false });
+      el("followUpMemoInput").value = "";
+      openModal("modalFollowUpHistory");
+      await renderFollowUpHistory(customerId);
+    }
+
+    async function renderFollowUpHistory(customerId) {
+      const body = el("followUpHistoryBody");
+      body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--gray-500);">読み込み中...</td></tr>';
+      try {
+        const data = await apiFetch(`/api/follow-ups/customer/${customerId}`);
+        const logs = data.logs || [];
+        if (logs.length === 0) {
+          body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--gray-500);padding:16px;">追客履歴はありません</td></tr>';
+          return;
+        }
+        body.innerHTML = logs.map(l => `<tr>
+          <td style="white-space:nowrap;">${formatDateTimeDisplay(l.called_at)}</td>
+          <td>${renderFollowUpResultBadge(l.result)}</td>
+          <td style="white-space:nowrap;">${escapeHtml(toHalfwidthKana(l.called_by || "-"))}</td>
+          <td style="font-size:12px;">${escapeHtml(l.memo || "")}</td>
+          <td><button type="button" class="btn btn-outline" style="padding:2px 6px;font-size:10px;color:var(--danger-color);border-color:var(--danger-color);" onclick="deleteFollowUpLog(${l.id}, '${customerId}')">取消</button></td>
+        </tr>`).join("");
+      } catch (err) {
+        body.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--danger-color);">読み込みに失敗しました</td></tr>`;
+      }
+    }
+
+    async function deleteFollowUpLog(logId, customerId) {
+      if (!confirm("この追客記録を取り消しますか？")) return;
+      try {
+        await apiFetch(`/api/follow-ups/${logId}`, { method: "DELETE" });
+        await renderFollowUpHistory(customerId);
+        if (customerState.followUpMode) {
+          await loadFollowUpLatest();
+          renderCustomerTable();
+        }
+        if (el("page-callback").classList.contains("active")) await refreshCallbackPage();
+      } catch (err) {
+        alert("取り消しに失敗しました: " + (err.message || err));
+      }
+    }
+
+    el("btnFollowUpMode").addEventListener("click", toggleFollowUpMode);
+
+    // ============================================================
+    // 折り返し照合ページ
+    // ============================================================
+    const callbackState = { lastQuery: "", results: [], absent: [] };
+    const CATEGORY_LABELS = { sell: "売", buy: "買", investment: "収益" };
+
+    async function initCallbackPage() {
+      // 担当者フィルターの選択肢（顧客マスターから）
+      if (!customerState.masters || !customerState.masters.staff) {
+        try { await loadCustomerMasters(); } catch (e) { console.error(e); }
+      }
+      const sel = el("absentStaffFilter");
+      const current = sel.value;
+      sel.innerHTML = '<option value="">担当者</option>' +
+        ((customerState.masters && customerState.masters.staff) || []).map(s => `<option value="${escapeHtml(s)}">${toHalfwidthKana(s)}</option>`).join("");
+      sel.value = current;
+      await loadAbsentList();
+      el("callbackPhoneInput").focus();
+    }
+
+    async function refreshCallbackPage() {
+      await loadAbsentList();
+      if (callbackState.lastQuery) await searchCallback(callbackState.lastQuery);
+    }
+
+    async function searchCallback(query) {
+      const raw = (query !== undefined ? query : el("callbackPhoneInput").value);
+      const digits = (raw || "").replace(/\D/g, "");
+      const info = el("callbackSearchInfo");
+      const box = el("callbackResults");
+      if (digits.length < 4) {
+        info.textContent = digits.length === 0 ? "" : "4桁以上入力してください";
+        box.innerHTML = "";
+        callbackState.lastQuery = "";
+        return;
+      }
+      callbackState.lastQuery = raw;
+      try {
+        const data = await apiFetch(`/api/follow-ups/lookup?phone=${encodeURIComponent(digits)}`);
+        callbackState.results = data.customers || [];
+        info.textContent = `「${digits}」に一致: ${callbackState.results.length}件`;
+        renderCallbackResults();
+      } catch (err) {
+        info.textContent = "";
+        box.innerHTML = `<div class="callback-empty" style="color:var(--danger-color);">検索に失敗しました: ${escapeHtml(err.message || String(err))}</div>`;
+      }
+    }
+
+    function renderCallbackResults() {
+      const box = el("callbackResults");
+      const list = callbackState.results;
+      if (list.length === 0) {
+        box.innerHTML = '<div class="callback-empty">一致する顧客がいません（未登録の番号か、電話番号の登録漏れの可能性があります）</div>';
+        return;
+      }
+      box.innerHTML = list.map(c => {
+        const isAbsent = c.last_result === "不在";
+        const logsHtml = (c.logs || []).length
+          ? c.logs.map(l => `<span>${renderFollowUpResultBadge(l.result)} ${formatFollowUpAt(l.called_at)} ${escapeHtml(toHalfwidthKana(l.called_by || ""))}${l.memo ? ` <span style="color:var(--gray-500);">「${escapeHtml(l.memo)}」</span>` : ""}</span>`).join("")
+          : '<span style="color:var(--gray-500);">追客履歴なし</span>';
+        return `<div class="callback-card ${isAbsent ? "absent" : ""}">
+          <div class="callback-card-head">
+            <span class="callback-card-name">${escapeHtml(toHalfwidthKana(c.customer_name || "（氏名なし）"))}</span>
+            <span style="font-size:14px;letter-spacing:1px;">${escapeHtml(toHalfwidthKana(c.phone || "-"))}</span>
+            ${isAbsent ? `<span class="fu-result 不在">不在中 ×${c.absent_streak}</span>` : renderFollowUpResultBadge(c.last_result)}
+          </div>
+          <div class="callback-card-meta">
+            <span>${CATEGORY_LABELS[c.category] || c.category} ${c.year}年 ${escapeHtml(c.case_number)}</span>
+            <span>担当: ${escapeHtml(toHalfwidthKana(c.staff_id || "-"))}</span>
+            <span>ｽﾃｰﾀｽ: ${escapeHtml(toHalfwidthKana(c.status || "-"))}</span>
+            <span>反響: ${c.inquiry_date ? formatDateDisplay(c.inquiry_date) : "-"} ${escapeHtml(toHalfwidthKana(c.inquiry_source || ""))}</span>
+            ${c.property ? `<span>物件: ${escapeHtml(toHalfwidthKana(c.property))}</span>` : ""}
+          </div>
+          <div class="callback-card-logs">${logsHtml}</div>
+          <div class="callback-card-actions">
+            ${renderFollowUpButtons(c.customer_id, c.category, c.year, { from: "callback", withCallback: true })}
+            <button type="button" class="btn btn-outline" style="padding:4px 10px;font-size:12px;" onclick="jumpToCustomer('${c.customer_id}', '${c.category}', ${c.year})">顧客を開く</button>
+          </div>
+        </div>`;
+      }).join("");
+    }
+
+    async function loadAbsentList() {
+      const body = el("absentBody");
+      try {
+        const data = await apiFetch("/api/follow-ups/absent");
+        callbackState.absent = data.customers || [];
+        renderAbsentList();
+      } catch (err) {
+        body.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--danger-color);padding:16px;">不在リストの取得に失敗しました</td></tr>`;
+      }
+    }
+
+    function renderAbsentList() {
+      const body = el("absentBody");
+      const staff = el("absentStaffFilter").value;
+      const list = staff ? callbackState.absent.filter(c => (c.staff_id || "") === staff) : callbackState.absent;
+      el("absentCount").textContent = `${list.length}件`;
+      if (list.length === 0) {
+        body.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--gray-500);padding:24px;">不在の顧客はいません</td></tr>';
+        return;
+      }
+      body.innerHTML = list.map(c => `<tr>
+        <td style="white-space:nowrap;">${formatDateTimeDisplay(c.last_called_at)}</td>
+        <td style="text-align:center;"><span class="absent-streak">${c.absent_streak}</span></td>
+        <td style="white-space:nowrap;">${CATEGORY_LABELS[c.category] || c.category} ${c.year}</td>
+        <td style="white-space:nowrap;">${escapeHtml(c.case_number)}</td>
+        <td style="white-space:nowrap;font-weight:600;">${escapeHtml(toHalfwidthKana(c.customer_name || "-"))}</td>
+        <td style="white-space:nowrap;">${escapeHtml(toHalfwidthKana(c.phone || "-"))}</td>
+        <td style="white-space:nowrap;">${escapeHtml(toHalfwidthKana(c.staff_id || "-"))}</td>
+        <td style="white-space:nowrap;">${escapeHtml(toHalfwidthKana(c.status || "-"))}</td>
+        <td style="white-space:nowrap;">${escapeHtml(toHalfwidthKana(c.last_called_by || "-"))}</td>
+        <td style="white-space:nowrap;">${renderFollowUpButtons(c.customer_id, c.category, c.year, { from: "absent", withCallback: true })}</td>
+      </tr>`).join("");
+    }
+
+    // 照合結果から顧客管理の該当顧客を開く
+    async function jumpToCustomer(customerId, category, year) {
+      customerState.category = category;
+      customerState.year = Number(year);
+      document.querySelectorAll(".menu-item").forEach(m => m.classList.toggle("active", m.dataset.page === "customers"));
+      showPage("customers");
+      // initCustomerPage 完了後に該当タブ・年度へ合わせて詳細を開く
+      setTimeout(async () => {
+        document.querySelectorAll(".customer-tab").forEach(t => t.classList.toggle("active", t.dataset.category === category));
+        customerState.category = category;
+        customerState.year = Number(year);
+        const yearSel = el("customerYear");
+        if (yearSel && Array.from(yearSel.options).some(o => Number(o.value) === Number(year))) yearSel.value = String(year);
+        await loadCustomers();
+        openCustomerDetail(customerId);
+      }, 300);
+    }
+
+    el("btnCallbackSearch").addEventListener("click", () => searchCallback());
+    el("btnCallbackClear").addEventListener("click", () => {
+      el("callbackPhoneInput").value = "";
+      el("callbackResults").innerHTML = "";
+      el("callbackSearchInfo").textContent = "";
+      callbackState.lastQuery = "";
+      el("callbackPhoneInput").focus();
+    });
+    let callbackSearchTimer = null;
+    el("callbackPhoneInput").addEventListener("input", () => {
+      clearTimeout(callbackSearchTimer);
+      callbackSearchTimer = setTimeout(() => searchCallback(), 350);
+    });
+    el("callbackPhoneInput").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); searchCallback(); } });
+    el("btnAbsentReload").addEventListener("click", loadAbsentList);
+    el("absentStaffFilter").addEventListener("change", renderAbsentList);
+
     // 顧客管理ページ表示時に初期化
     const originalShowPage = showPage;
     showPage = function(page) {
       originalShowPage(page);
       if (page === "customers") {
         initCustomerPage();
+      }
+      if (page === "callback") {
+        initCallbackPage();
       }
     };
 
@@ -8679,6 +9282,7 @@
     dashboard: "dashboard",
     contracts: "contracts",
     customers: "customers",
+    callback: "callback",
     deadline: "deadline",
     register: "register",
     "closed-contracted": "closed-contracted",

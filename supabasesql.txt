@@ -90,4 +90,15 @@ CREATE TABLE public.record_locks (
   locked_at timestamp with time zone NOT NULL DEFAULT now(),
   expires_at timestamp with time zone NOT NULL,
   CONSTRAINT record_locks_pkey PRIMARY KEY (id)
+);CREATE TABLE public.follow_up_logs (
+  id bigint NOT NULL DEFAULT nextval('follow_up_logs_id_seq'::regclass),
+  customer_id uuid NOT NULL,
+  category text NOT NULL,
+  year integer NOT NULL,
+  result text NOT NULL,
+  memo text,
+  called_by text,
+  called_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT follow_up_logs_pkey PRIMARY KEY (id),
+  CONSTRAINT follow_up_logs_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(id) ON DELETE CASCADE
 );

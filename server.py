@@ -2379,15 +2379,26 @@ def api_get_customers(category, year):
 
     # フィルター処理
     staff = request.args.get("staff")
-    status = request.args.get("status")
+    # status は複数指定可（?status=A&status=B または ?status=A,B）
+    statuses = set()
+    for raw in request.args.getlist("status"):
+        for s in (raw or "").split(","):
+            s = s.strip()
+            if s:
+                statuses.add(s)
+    # status_mode: include（いずれかに該当 = OR）/ exclude（いずれにも該当しない = NOT）
+    status_mode = request.args.get("status_mode", "include")
     keyword = request.args.get("keyword")
     date_from = request.args.get("date_from")
     date_to = request.args.get("date_to")
 
     if staff:
         customers = [c for c in customers if c.get("staff_id") == staff]
-    if status:
-        customers = [c for c in customers if c.get("status") == status]
+    if statuses:
+        if status_mode == "exclude":
+            customers = [c for c in customers if (c.get("status") or "") not in statuses]
+        else:
+            customers = [c for c in customers if (c.get("status") or "") in statuses]
     if keyword:
         kw = keyword.lower()
         customers = [c for c in customers if
@@ -2836,6 +2847,249 @@ def api_export_customers(category, year):
         mimetype="text/csv",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+
+
+# ------------------------------------------------------------
+# 追客ログ（follow_up_logs テーブル）
+# ------------------------------------------------------------
+FOLLOW_UP_RESULTS = ("通話", "不在", "SMS", "折り返し")
+FOLLOW_UP_CATEGORIES = ("sell", "buy", "investment")
+
+# 顧客一覧と結合して返すときに使う列（照合画面・不在リスト用）
+FOLLOW_UP_CUSTOMER_COLUMNS = """
+    c.id AS customer_id, c.category, c.year, c.case_number, c.status, c.staff_id,
+    c.customer_name, c.phone, c.inquiry_date, c.inquiry_source,
+    c.assessment_address, c.target_property, c.desired_property
+"""
+
+
+def follow_up_row_to_dict(row):
+    return {
+        "id": row["id"],
+        "customer_id": str(row["customer_id"]),
+        "category": row["category"],
+        "year": row["year"],
+        "result": row["result"] or "",
+        "memo": row.get("memo") or "",
+        "called_by": row.get("called_by") or "",
+        "called_at": format_datetime(row.get("called_at")),
+    }
+
+
+def follow_up_customer_row_to_dict(row):
+    """顧客情報＋最新追客ログを1件にまとめる（照合・不在リスト）"""
+    return {
+        "customer_id": str(row["customer_id"]),
+        "category": row["category"],
+        "year": row["year"],
+        "case_number": row["case_number"] or "",
+        "status": row["status"] or "",
+        "staff_id": row["staff_id"] or "",
+        "customer_name": row["customer_name"] or "",
+        "phone": row["phone"] or "",
+        "inquiry_date": format_date(row["inquiry_date"]),
+        "inquiry_source": row["inquiry_source"] or "",
+        "property": row["assessment_address"] or row["target_property"] or row["desired_property"] or "",
+        "last_result": row.get("last_result") or "",
+        "last_called_by": row.get("last_called_by") or "",
+        "last_called_at": format_datetime(row.get("last_called_at")),
+        "absent_streak": row.get("absent_streak") or 0,
+    }
+
+
+def load_follow_up_history(customer_id, limit=50):
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT * FROM follow_up_logs
+                WHERE customer_id = %s::uuid
+                ORDER BY called_at DESC, id DESC
+                LIMIT %s
+                """,
+                (customer_id, limit),
+            )
+            return [follow_up_row_to_dict(r) for r in cur.fetchall()]
+
+
+@app.route("/api/follow-ups", methods=["POST"])
+@login_required
+def api_create_follow_up():
+    """追客結果をワンタップ保存（いつ・誰が・結果）"""
+    payload = request.get_json() or {}
+    customer_id = payload.get("customer_id")
+    category = payload.get("category")
+    year = payload.get("year")
+    result = (payload.get("result") or "").strip()
+    memo = (payload.get("memo") or "").strip() or None
+
+    if category not in FOLLOW_UP_CATEGORIES:
+        return jsonify({"error": "無効なカテゴリです"}), 400
+    if result not in FOLLOW_UP_RESULTS:
+        return jsonify({"error": "無効な結果です"}), 400
+    try:
+        year = int(year)
+    except (TypeError, ValueError):
+        return jsonify({"error": "無効な年度です"}), 400
+
+    customer = get_customer_by_id(category, year, customer_id)
+    if not customer:
+        return jsonify({"error": "顧客が見つかりません"}), 404
+
+    called_by = session.get("user_id", "")
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO follow_up_logs (customer_id, category, year, result, memo, called_by)
+                VALUES (%s::uuid, %s, %s, %s, %s, %s)
+                RETURNING *
+                """,
+                (customer_id, category, year, result, memo, called_by),
+            )
+            row = cur.fetchone()
+        conn.commit()
+
+    return jsonify({"ok": True, "log": follow_up_row_to_dict(row)})
+
+
+@app.route("/api/follow-ups/<int:log_id>", methods=["DELETE"])
+@login_required
+def api_delete_follow_up(log_id):
+    """誤タップ時の取り消し用"""
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM follow_up_logs WHERE id = %s RETURNING id", (log_id,))
+            row = cur.fetchone()
+        conn.commit()
+    if row is None:
+        return jsonify({"error": "ログが見つかりません"}), 404
+    return jsonify({"ok": True})
+
+
+@app.route("/api/follow-ups/customer/<customer_id>", methods=["GET"])
+@login_required
+def api_follow_up_history(customer_id):
+    """顧客1件分の追客履歴（新しい順）"""
+    return jsonify({"logs": load_follow_up_history(customer_id)})
+
+
+@app.route("/api/follow-ups/latest", methods=["GET"])
+@login_required
+def api_follow_up_latest():
+    """カテゴリ・年度内の各顧客の最新追客ログ（追客モードの一覧表示用）
+    戻り値: { customer_id: {result, called_by, called_at, count} }
+    """
+    category = request.args.get("category")
+    year = request.args.get("year", type=int)
+    if category not in FOLLOW_UP_CATEGORIES or not year:
+        return jsonify({"error": "カテゴリと年度を指定してください"}), 400
+
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT DISTINCT ON (customer_id)
+                    customer_id, result, called_by, called_at,
+                    COUNT(*) OVER (PARTITION BY customer_id) AS cnt
+                FROM follow_up_logs
+                WHERE category = %s AND year = %s
+                ORDER BY customer_id, called_at DESC, id DESC
+                """,
+                (category, year),
+            )
+            rows = cur.fetchall()
+
+    latest = {}
+    for r in rows:
+        latest[str(r["customer_id"])] = {
+            "result": r["result"] or "",
+            "called_by": r["called_by"] or "",
+            "called_at": format_datetime(r["called_at"]),
+            "count": r["cnt"],
+        }
+    return jsonify({"latest": latest})
+
+
+# 顧客ごとの最新ログ＋直近連続不在回数を求める共通CTE
+FOLLOW_UP_LATEST_CTE = """
+    WITH ranked AS (
+        SELECT customer_id, result, called_by, called_at,
+               ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY called_at DESC, id DESC) AS rn
+        FROM follow_up_logs
+    ),
+    latest AS (
+        SELECT customer_id, result AS last_result, called_by AS last_called_by, called_at AS last_called_at
+        FROM ranked WHERE rn = 1
+    ),
+    streak AS (
+        -- 最新から連続して「不在」が続いている回数
+        SELECT r.customer_id, COUNT(*) AS absent_streak
+        FROM ranked r
+        WHERE r.result = '不在'
+          AND NOT EXISTS (
+              SELECT 1 FROM ranked r2
+              WHERE r2.customer_id = r.customer_id AND r2.rn < r.rn AND r2.result <> '不在'
+          )
+        GROUP BY r.customer_id
+    )
+"""
+
+
+@app.route("/api/follow-ups/absent", methods=["GET"])
+@login_required
+def api_follow_up_absent():
+    """不在リスト: 最新の追客結果が「不在」の顧客（日付で絞らず全件・新しい順）"""
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                FOLLOW_UP_LATEST_CTE + f"""
+                SELECT {FOLLOW_UP_CUSTOMER_COLUMNS},
+                       l.last_result, l.last_called_by, l.last_called_at,
+                       COALESCE(s.absent_streak, 0) AS absent_streak
+                FROM latest l
+                JOIN customers c ON c.id = l.customer_id
+                LEFT JOIN streak s ON s.customer_id = l.customer_id
+                WHERE l.last_result = '不在'
+                ORDER BY l.last_called_at DESC
+                """
+            )
+            rows = cur.fetchall()
+    return jsonify({"customers": [follow_up_customer_row_to_dict(r) for r in rows]})
+
+
+@app.route("/api/follow-ups/lookup", methods=["GET"])
+@login_required
+def api_follow_up_lookup():
+    """折り返し照合: 電話番号（数字のみ・部分一致）で全カテゴリ・全年度の顧客を検索"""
+    raw = request.args.get("phone") or ""
+    digits = re.sub(r"\D", "", raw)
+    if len(digits) < 4:
+        return jsonify({"error": "電話番号は4桁以上入力してください"}), 400
+
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                FOLLOW_UP_LATEST_CTE + f"""
+                SELECT {FOLLOW_UP_CUSTOMER_COLUMNS},
+                       l.last_result, l.last_called_by, l.last_called_at,
+                       COALESCE(s.absent_streak, 0) AS absent_streak
+                FROM customers c
+                LEFT JOIN latest l ON l.customer_id = c.id
+                LEFT JOIN streak s ON s.customer_id = c.id
+                WHERE regexp_replace(coalesce(c.phone, ''), '\\D', '', 'g') LIKE %s
+                ORDER BY l.last_called_at DESC NULLS LAST, c.year DESC, c.case_number DESC
+                LIMIT 50
+                """,
+                (f"%{digits}%",),
+            )
+            rows = cur.fetchall()
+
+    customers = [follow_up_customer_row_to_dict(r) for r in rows]
+    # 各顧客の直近履歴（最大5件）も添える
+    for c in customers:
+        c["logs"] = load_follow_up_history(c["customer_id"], limit=5)
+    return jsonify({"digits": digits, "customers": customers})
 
 
 # ------------------------------------------------------------
