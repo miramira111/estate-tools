@@ -2858,7 +2858,7 @@ FOLLOW_UP_CATEGORIES = ("sell", "buy", "investment")
 # 顧客一覧と結合して返すときに使う列（照合画面・不在リスト用）
 FOLLOW_UP_CUSTOMER_COLUMNS = """
     c.id AS customer_id, c.category, c.year, c.case_number, c.status, c.staff_id,
-    c.customer_name, c.phone, c.inquiry_date, c.inquiry_source,
+    c.customer_name, c.phone, c.inquiry_date, c.inquiry_source, c.property_type,
     c.assessment_address, c.target_property, c.desired_property
 """
 
@@ -2889,6 +2889,7 @@ def follow_up_customer_row_to_dict(row):
         "phone": row["phone"] or "",
         "inquiry_date": format_date(row["inquiry_date"]),
         "inquiry_source": row["inquiry_source"] or "",
+        "property_type": row["property_type"] or "",
         "property": row["assessment_address"] or row["target_property"] or row["desired_property"] or "",
         "last_result": row.get("last_result") or "",
         "last_called_by": row.get("last_called_by") or "",

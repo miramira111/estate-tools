@@ -1605,10 +1605,14 @@
                     <th>連続不在</th>
                     <th>区分</th>
                     <th>案件番号</th>
+                    <th>ｽﾃｰﾀｽ</th>
+                    <th>担当</th>
+                    <th>反響日</th>
+                    <th>反響</th>
+                    <th>種別</th>
+                    <th>物件・住所</th>
                     <th>氏名</th>
                     <th>電話番号</th>
-                    <th>担当</th>
-                    <th>ｽﾃｰﾀｽ</th>
                     <th>かけた人</th>
                     <th>記録</th>
                   </tr>
@@ -7284,10 +7288,22 @@
       const tbody = el("customersBody");
       const cardList = el("customersCardList");
 
-      if (customerState.followUpMode) {
-        renderFollowUpTable(pageCustomers, thead, tbody, cardList);
-        return;
-      }
+      // 追客モード時は「最終追客」「記録」列を追加
+      const fu = customerState.followUpMode;
+      const followUpHeaderHtml = fu ? '<th>最終追客</th><th>記録</th>' : '';
+      const followUpCells = (c) => {
+        if (!fu) return "";
+        const last = customerState.followUpLatest[c.id];
+        const lastHtml = last
+          ? `${renderFollowUpResultBadge(last.result)}<br><span class="fu-last">${formatFollowUpAt(last.called_at)} ${escapeHtml(toHalfwidthKana(last.called_by || ""))} (${last.count}回)</span>`
+          : renderFollowUpResultBadge("");
+        return `<td style="white-space:nowrap;">${lastHtml}</td><td style="white-space:nowrap;">${renderFollowUpButtons(c.id, customerState.category, customerState.year, { from: "list" })}</td>`;
+      };
+      const followUpRowStyle = (c) => {
+        if (!fu) return "";
+        const last = customerState.followUpLatest[c.id];
+        return last && last.result === "不在" ? "background-color:#fff7f7;" : "";
+      };
 
       // カテゴリ別ヘッダー
       const categoryHeaders = {
@@ -7302,6 +7318,7 @@
           <th>氏名</th>
           <th>電話番号</th>
           <th>進捗</th>
+          ${followUpHeaderHtml}
           <th>操作</th>
         </tr>`,
         buy: `<tr>
@@ -7315,6 +7332,7 @@
           <th>氏名</th>
           <th>電話番号</th>
           <th>進捗</th>
+          ${followUpHeaderHtml}
           <th>操作</th>
         </tr>`,
         investment: `<tr>
@@ -7328,6 +7346,7 @@
           <th>氏名</th>
           <th>電話番号</th>
           <th>進捗</th>
+          ${followUpHeaderHtml}
           <th>操作</th>
         </tr>`
       };
@@ -7371,7 +7390,9 @@
               <div class="mobile-card-row"><span class="mobile-card-label">反響</span><span class="mobile-card-value">${toHalfwidthKana(c.inquiry_source || "-")}</span></div>
               <div class="mobile-card-row full"><span class="mobile-card-label">${propertyLabel}</span><span class="mobile-card-value">${toHalfwidthKana(propertyCol)}</span></div>
               <div class="mobile-card-row full">${progressHtml}</div>
+              ${fu ? `<div class="mobile-card-row full"><span class="mobile-card-label">最終追客</span><span class="mobile-card-value">${(customerState.followUpLatest[c.id] ? `${renderFollowUpResultBadge(customerState.followUpLatest[c.id].result)} <span class="fu-last">${formatFollowUpAt(customerState.followUpLatest[c.id].called_at)} ${escapeHtml(toHalfwidthKana(customerState.followUpLatest[c.id].called_by || ""))} (${customerState.followUpLatest[c.id].count}回)</span>` : renderFollowUpResultBadge(""))}</span></div>` : ""}
             </div>
+            ${fu ? `<div class="mobile-card-actions" style="justify-content:flex-start;">${renderFollowUpButtons(c.id, customerState.category, customerState.year, { from: "list" })}</div>` : ""}
             <div class="mobile-card-actions">
               <button class="btn btn-outline" onclick="event.stopPropagation(); openEditCustomerModal('${c.id}')">編集</button>
               <button class="btn btn-outline" style="color:var(--danger-color);border-color:var(--danger-color);" onclick="event.stopPropagation(); deleteCustomerFromList('${c.id}', '${deleteName}')">削除</button>
@@ -7423,7 +7444,7 @@
           }
         }
 
-        return `<tr style="cursor:pointer;${rowBgStyle}" onclick="onCustomerRowClick(event, '${c.id}')">
+        return `<tr style="cursor:pointer;${rowBgStyle || followUpRowStyle(c)}" onclick="onCustomerRowClick(event, '${c.id}')">
           <td style="white-space:nowrap;">${c.case_number || "-"}</td>
           <td><span class="customer-status-badge" style="background:${statusStyle.bg};color:${statusStyle.color};">${statusLabel}</span></td>
           <td style="white-space:nowrap;">${staffLabel}</td>
@@ -7434,6 +7455,7 @@
           <td style="white-space:nowrap;">${customerNameLabel}</td>
           <td style="white-space:nowrap;font-size:11px;">${phoneLabel}</td>
           <td>${progressHtml}</td>
+          ${followUpCells(c)}
           <td style="white-space:nowrap;">
             <button class="btn btn-outline" style="padding:3px 6px;font-size:10px;" onclick="event.stopPropagation(); openEditCustomerModal('${c.id}')">編集</button>
             <button class="btn btn-outline" style="padding:3px 6px;font-size:10px;color:var(--danger-color);border-color:var(--danger-color);" onclick="event.stopPropagation(); deleteCustomerFromList('${c.id}', '${deleteName.replace(/'/g, "\\'")}')">削除</button>
@@ -8948,77 +8970,6 @@
       renderCustomerTable();
     }
 
-    function renderFollowUpTable(pageCustomers, thead, tbody, cardList) {
-      thead.innerHTML = `<tr>
-        <th>案件番号</th>
-        <th>ｽﾃｰﾀｽ</th>
-        <th>担当</th>
-        <th>氏名</th>
-        <th>電話番号</th>
-        <th>最終追客</th>
-        <th>回数</th>
-        <th>記録</th>
-      </tr>`;
-
-      if (pageCustomers.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--gray-500);padding:32px;">顧客データがありません</td></tr>`;
-        if (cardList) cardList.innerHTML = '<div style="text-align:center;padding:20px;color:var(--gray-500);">顧客データがありません</div>';
-        return;
-      }
-
-      const category = customerState.category;
-      const year = customerState.year;
-
-      const rowData = (c) => {
-        const last = customerState.followUpLatest[c.id];
-        const statusStyle = getCustomerStatusStyle(c.status);
-        return {
-          last,
-          statusHtml: `<span class="customer-status-badge" style="background:${statusStyle.bg};color:${statusStyle.color};">${c.status ? toHalfwidthKana(c.status) : "-"}</span>`,
-          lastHtml: last
-            ? `${renderFollowUpResultBadge(last.result)} <span class="fu-last">${formatFollowUpAt(last.called_at)} ${escapeHtml(toHalfwidthKana(last.called_by || ""))}</span>`
-            : renderFollowUpResultBadge(""),
-          name: toHalfwidthKana(c.customer_name || "-"),
-          phone: toHalfwidthKana(c.phone || "-"),
-          staff: toHalfwidthKana(c.staff_id || "-"),
-          buttons: renderFollowUpButtons(c.id, category, year, { from: "list" }),
-        };
-      };
-
-      if (isMobileView() && cardList) {
-        cardList.innerHTML = pageCustomers.map(c => {
-          const r = rowData(c);
-          return `<div class="mobile-card" onclick="onCustomerRowClick(event, '${c.id}')" style="cursor:pointer;">
-            <div class="mobile-card-header">
-              <span class="mobile-card-id">${c.case_number || "-"} ${r.statusHtml}</span>
-              <span style="font-size:11px;color:var(--gray-500);">${r.staff}</span>
-            </div>
-            <div class="mobile-card-body">
-              <div class="mobile-card-row"><span class="mobile-card-label">氏名</span><span class="mobile-card-value">${r.name}</span></div>
-              <div class="mobile-card-row"><span class="mobile-card-label">電話</span><span class="mobile-card-value"><a href="tel:${escapeHtml((c.phone || "").replace(/[^\d+]/g, ""))}" onclick="event.stopPropagation();">${r.phone}</a></span></div>
-              <div class="mobile-card-row full"><span class="mobile-card-label">最終追客</span><span class="mobile-card-value">${r.lastHtml}${r.last ? ` <span class="fu-last">(${r.last.count}回)</span>` : ""}</span></div>
-            </div>
-            <div class="mobile-card-actions" style="justify-content:flex-start;">${r.buttons}</div>
-          </div>`;
-        }).join("");
-      }
-
-      tbody.innerHTML = pageCustomers.map(c => {
-        const r = rowData(c);
-        const rowStyle = r.last && r.last.result === "不在" ? "background-color:#fff7f7;" : "";
-        return `<tr style="cursor:pointer;${rowStyle}" onclick="onCustomerRowClick(event, '${c.id}')">
-          <td style="white-space:nowrap;">${c.case_number || "-"}</td>
-          <td>${r.statusHtml}</td>
-          <td style="white-space:nowrap;">${r.staff}</td>
-          <td style="white-space:nowrap;font-weight:600;">${r.name}</td>
-          <td style="white-space:nowrap;font-size:13px;">${r.phone}</td>
-          <td style="white-space:nowrap;">${r.lastHtml}</td>
-          <td style="text-align:center;">${r.last ? r.last.count : "-"}</td>
-          <td style="white-space:nowrap;">${r.buttons}</td>
-        </tr>`;
-      }).join("");
-    }
-
     // 結果を保存（いつ・誰が はサーバー側で自動付与）
     // opts.from: "list"（顧客一覧） / "callback"（照合結果） / "absent"（不在リスト） / "history"（履歴モーダル）
     async function recordFollowUp(customerId, category, year, result, opts = {}) {
@@ -9182,7 +9133,8 @@
             <span>担当: ${escapeHtml(toHalfwidthKana(c.staff_id || "-"))}</span>
             <span>ｽﾃｰﾀｽ: ${escapeHtml(toHalfwidthKana(c.status || "-"))}</span>
             <span>反響: ${c.inquiry_date ? formatDateDisplay(c.inquiry_date) : "-"} ${escapeHtml(toHalfwidthKana(c.inquiry_source || ""))}</span>
-            ${c.property ? `<span>物件: ${escapeHtml(toHalfwidthKana(c.property))}</span>` : ""}
+            <span>種別: ${escapeHtml(toHalfwidthKana(c.property_type || "-"))}</span>
+            <span>${c.category === "sell" ? "査定住所" : c.category === "buy" ? "反響物件" : "希望物件"}: ${escapeHtml(toHalfwidthKana(c.property || "-"))}</span>
           </div>
           <div class="callback-card-logs">${logsHtml}</div>
           <div class="callback-card-actions">
@@ -9200,7 +9152,7 @@
         callbackState.absent = data.customers || [];
         renderAbsentList();
       } catch (err) {
-        body.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--danger-color);padding:16px;">不在リストの取得に失敗しました</td></tr>`;
+        body.innerHTML = `<tr><td colspan="14" style="text-align:center;color:var(--danger-color);padding:16px;">不在リストの取得に失敗しました</td></tr>`;
       }
     }
 
@@ -9210,7 +9162,7 @@
       const list = staff ? callbackState.absent.filter(c => (c.staff_id || "") === staff) : callbackState.absent;
       el("absentCount").textContent = `${list.length}件`;
       if (list.length === 0) {
-        body.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--gray-500);padding:24px;">不在の顧客はいません</td></tr>';
+        body.innerHTML = '<tr><td colspan="14" style="text-align:center;color:var(--gray-500);padding:24px;">不在の顧客はいません</td></tr>';
         return;
       }
       body.innerHTML = list.map(c => `<tr>
@@ -9218,10 +9170,14 @@
         <td style="text-align:center;"><span class="absent-streak">${c.absent_streak}</span></td>
         <td style="white-space:nowrap;">${CATEGORY_LABELS[c.category] || c.category} ${c.year}</td>
         <td style="white-space:nowrap;">${escapeHtml(c.case_number)}</td>
+        <td style="white-space:nowrap;">${escapeHtml(toHalfwidthKana(c.status || "-"))}</td>
+        <td style="white-space:nowrap;">${escapeHtml(toHalfwidthKana(c.staff_id || "-"))}</td>
+        <td style="white-space:nowrap;">${c.inquiry_date ? formatDateDisplay(c.inquiry_date) : "-"}</td>
+        <td style="white-space:nowrap;font-size:11px;">${escapeHtml(toHalfwidthKana(c.inquiry_source || "-"))}</td>
+        <td style="white-space:nowrap;font-size:11px;">${escapeHtml(toHalfwidthKana(c.property_type || "-"))}</td>
+        <td style="max-width:160px;min-width:100px;font-size:11px;white-space:normal;word-break:break-all;" title="${escapeHtml(toHalfwidthKana(c.property || ""))}">${escapeHtml(toHalfwidthKana(c.property || "-"))}</td>
         <td style="white-space:nowrap;font-weight:600;">${escapeHtml(toHalfwidthKana(c.customer_name || "-"))}</td>
         <td style="white-space:nowrap;">${escapeHtml(toHalfwidthKana(c.phone || "-"))}</td>
-        <td style="white-space:nowrap;">${escapeHtml(toHalfwidthKana(c.staff_id || "-"))}</td>
-        <td style="white-space:nowrap;">${escapeHtml(toHalfwidthKana(c.status || "-"))}</td>
         <td style="white-space:nowrap;">${escapeHtml(toHalfwidthKana(c.last_called_by || "-"))}</td>
         <td style="white-space:nowrap;">${renderFollowUpButtons(c.customer_id, c.category, c.year, { from: "absent", withCallback: true })}</td>
       </tr>`).join("");
