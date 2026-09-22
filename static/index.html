@@ -386,6 +386,8 @@
     .fu-result.折り返し { background: #fef3c7; color: #92400e; }
     .fu-result.メモ { background: var(--gray-100); color: var(--gray-700); }
     .fu-memo-row td { background: #fafaf5; }
+    .fu-memo-cell { font-size: 12px; white-space: normal !important; word-break: break-all; overflow-wrap: anywhere; min-width: 160px; line-height: 1.5; }
+    #modalFollowUpHistory .table-container { overflow-x: auto; }
     .fu-last { font-size: 11px; color: var(--gray-600); white-space: nowrap; }
     .fu-saved { font-size: 11px; color: #16a34a; margin-left: 4px; }
     .follow-up-history-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
@@ -413,6 +415,7 @@
     .callback-card-name { font-size: 17px; font-weight: 700; }
     .callback-card-meta { font-size: 12px; color: var(--gray-600); display: flex; flex-wrap: wrap; gap: 4px 14px; margin-bottom: 8px; }
     .callback-card-logs { font-size: 12px; color: var(--gray-700); display: flex; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 8px; }
+    .callback-card-logs > span { overflow-wrap: anywhere; }
     .callback-card-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
     .callback-empty { padding: 16px; text-align: center; color: var(--gray-500); font-size: 13px; }
     .absent-streak { display: inline-block; min-width: 22px; text-align: center; padding: 1px 6px; border-radius: 10px; background: #fee2e2; color: #991b1b; font-weight: 700; font-size: 12px; }
@@ -2026,7 +2029,7 @@
 
   <!-- 追客履歴モーダル -->
   <div class="modal-backdrop hidden" id="modalFollowUpHistory">
-    <div class="modal" style="max-width:560px;">
+    <div class="modal" style="max-width:680px;">
       <div class="modal-header">
         <h3 class="modal-title" id="followUpHistoryTitle">追客履歴</h3>
         <button class="modal-close" data-close="modalFollowUpHistory">×</button>
@@ -9228,15 +9231,63 @@
           body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--gray-500);padding:16px;">追客履歴はありません</td></tr>';
           return;
         }
-        body.innerHTML = logs.map(l => `<tr class="${l.result === "メモ" ? "fu-memo-row" : ""}">
+        body.innerHTML = logs.map(l => `<tr class="${l.result === "メモ" ? "fu-memo-row" : ""}" id="fuLog_${l.id}">
           <td style="white-space:nowrap;">${formatDateTimeDisplay(l.called_at)}</td>
           <td>${renderFollowUpResultBadge(l.result)}</td>
           <td style="white-space:nowrap;">${escapeHtml(toHalfwidthKana(l.called_by || "-"))}</td>
-          <td style="font-size:12px;">${escapeHtml(l.memo || "")}</td>
-          <td><button type="button" class="btn btn-outline" style="padding:2px 6px;font-size:10px;color:var(--danger-color);border-color:var(--danger-color);" onclick="deleteFollowUpLog(${l.id}, '${customerId}')">取消</button></td>
+          <td class="fu-memo-cell" id="fuMemo_${l.id}" data-memo="${escapeHtml(l.memo || "")}">${escapeHtml(l.memo || "")}</td>
+          <td style="white-space:nowrap;">
+            <button type="button" class="btn btn-outline" style="padding:2px 6px;font-size:10px;" onclick="editFollowUpMemo(${l.id}, '${customerId}')">編集</button>
+            <button type="button" class="btn btn-outline" style="padding:2px 6px;font-size:10px;color:var(--danger-color);border-color:var(--danger-color);" onclick="deleteFollowUpLog(${l.id}, '${customerId}')">取消</button>
+          </td>
         </tr>`).join("");
       } catch (err) {
         body.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--danger-color);">読み込みに失敗しました</td></tr>`;
+      }
+    }
+
+    // メモのその場編集（セルをテキストエリアに置き換え → 保存 / ｷｬﾝｾﾙ）
+    function editFollowUpMemo(logId, customerId) {
+      const cell = el(`fuMemo_${logId}`);
+      if (!cell || cell.dataset.editing === "1") return;
+      const current = cell.dataset.memo || "";
+      cell.dataset.editing = "1";
+      cell.innerHTML = `
+        <textarea class="search-input fu-memo-edit" rows="3" style="width:100%;box-sizing:border-box;">${escapeHtml(current)}</textarea>
+        <div style="display:flex;gap:6px;margin-top:4px;">
+          <button type="button" class="btn btn-primary" style="padding:3px 10px;font-size:11px;" onclick="saveFollowUpMemo(${logId}, '${customerId}')">保存</button>
+          <button type="button" class="btn btn-outline" style="padding:3px 10px;font-size:11px;" onclick="cancelFollowUpMemoEdit(${logId})">ｷｬﾝｾﾙ</button>
+        </div>`;
+      const ta = cell.querySelector("textarea");
+      ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+      // Ctrl+Enter で保存、Esc でキャンセル
+      ta.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); saveFollowUpMemo(logId, customerId); }
+        if (e.key === "Escape") { e.preventDefault(); cancelFollowUpMemoEdit(logId); }
+      });
+    }
+
+    function cancelFollowUpMemoEdit(logId) {
+      const cell = el(`fuMemo_${logId}`);
+      if (!cell) return;
+      cell.dataset.editing = "";
+      cell.textContent = cell.dataset.memo || "";
+    }
+
+    async function saveFollowUpMemo(logId, customerId) {
+      const cell = el(`fuMemo_${logId}`);
+      const ta = cell && cell.querySelector("textarea");
+      if (!ta) return;
+      const memo = ta.value.trim();
+      try {
+        const res = await apiFetch(`/api/follow-ups/${logId}`, { method: "PUT", body: JSON.stringify({ memo }) });
+        cell.dataset.editing = "";
+        cell.dataset.memo = res.log.memo || "";
+        cell.textContent = res.log.memo || "";
+        // 照合ページのカードに出ている履歴も更新
+        if (el("page-callback").classList.contains("active") && callbackState.lastQuery) await searchCallback(callbackState.lastQuery);
+      } catch (err) {
+        alert("メモの保存に失敗しました: " + (err.message || err));
       }
     }
 

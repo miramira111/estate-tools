@@ -2982,6 +2982,29 @@ def api_create_follow_up():
     return jsonify({"ok": True, "log": follow_up_row_to_dict(row)})
 
 
+@app.route("/api/follow-ups/<int:log_id>", methods=["PUT"])
+@login_required
+def api_update_follow_up(log_id):
+    """追客ログのメモを編集（結果・日時・かけた人は変更しない）"""
+    payload = request.get_json() or {}
+    memo = (payload.get("memo") or "").strip()
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT result FROM follow_up_logs WHERE id = %s", (log_id,))
+            row = cur.fetchone()
+            if row is None:
+                return jsonify({"error": "ログが見つかりません"}), 404
+            if row["result"] == "メモ" and not memo:
+                return jsonify({"error": "メモを入力してください（削除する場合は取消を使ってください）"}), 400
+            cur.execute(
+                "UPDATE follow_up_logs SET memo = %s WHERE id = %s RETURNING *",
+                (memo or None, log_id),
+            )
+            row = cur.fetchone()
+        conn.commit()
+    return jsonify({"ok": True, "log": follow_up_row_to_dict(row)})
+
+
 @app.route("/api/follow-ups/<int:log_id>", methods=["DELETE"])
 @login_required
 def api_delete_follow_up(log_id):
