@@ -382,9 +382,26 @@
     .fu-result.不在 { background: #fee2e2; color: #991b1b; }
     .fu-result.SMS { background: #dbeafe; color: #1e40af; }
     .fu-result.折り返し { background: #fef3c7; color: #92400e; }
+    .fu-result.メモ { background: var(--gray-100); color: var(--gray-700); }
+    .fu-memo-row td { background: #fafaf5; }
     .fu-last { font-size: 11px; color: var(--gray-600); white-space: nowrap; }
     .fu-saved { font-size: 11px; color: #16a34a; margin-left: 4px; }
     .follow-up-history-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+    .fu-task-section { margin-top: 12px; padding: 10px 12px; border: 1px solid var(--gray-200); border-radius: 8px; background: var(--gray-50); }
+    .fu-task-title { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+    .fu-task-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+    .fu-task-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: #fff; border-radius: 6px; border-left: 4px solid var(--warning-color); font-size: 12px; }
+    .fu-task-item.overdue { border-left-color: var(--danger-color); background: #fff5f5; }
+    .fu-task-item.done { border-left-color: var(--gray-300); color: var(--gray-500); text-decoration: line-through; }
+    .fu-task-item .fu-task-when { font-weight: 700; white-space: nowrap; }
+    .fu-task-item .fu-task-body { flex: 1; min-width: 0; }
+    .fu-task-item .fu-task-meta { font-size: 11px; color: var(--gray-500); }
+    .fu-task-form { display: flex; flex-direction: column; gap: 6px; }
+    .fu-task-quick { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .fu-task-quick .fu-btn.active { background: var(--primary-color); color: #fff; border-color: var(--primary-color); }
+    .notification-modal-item.task { background: #fffbeb; border-left: 4px solid var(--warning-color); display: flex; gap: 10px; align-items: center; }
+    .notification-modal-item.task.overdue { background: #fef2f2; border-left-color: var(--danger-color); }
+    .notification-modal-item.task .task-body { flex: 1; min-width: 0; }
 
     /* 折り返し照合 */
     .callback-results { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
@@ -2013,14 +2030,37 @@
         <button class="modal-close" data-close="modalFollowUpHistory">×</button>
       </div>
       <div class="follow-up-history-actions" id="followUpHistoryActions"></div>
-      <div class="table-container" style="max-height:360px;overflow-y:auto;">
+      <div style="display:flex;gap:6px;margin-bottom:10px;">
+        <input type="text" class="search-input" id="followUpMemoInput" placeholder="ﾒﾓ — ［ﾒﾓ追加］で単独保存、または結果ボタンと一緒に保存" style="flex:1;min-width:0;">
+        <button type="button" class="btn btn-outline" id="btnFollowUpMemoAdd" style="white-space:nowrap;">📝 ﾒﾓ追加</button>
+      </div>
+      <!-- 次回タスク -->
+      <div class="fu-task-section" style="margin-top:0;margin-bottom:12px;">
+        <div class="fu-task-title">📌 次回タスク</div>
+        <div id="followUpTaskList" class="fu-task-list"></div>
+        <div class="fu-task-form">
+          <div class="fu-task-quick">
+            <button type="button" class="fu-btn" data-task-days="0">今日</button>
+            <button type="button" class="fu-btn" data-task-days="1">明日</button>
+            <button type="button" class="fu-btn" data-task-days="2">明後日</button>
+            <button type="button" class="fu-btn" data-task-days="7">1週間後</button>
+            <input type="date" class="filter-select" id="followUpTaskDate" style="min-width:140px;">
+            <input type="time" class="filter-select" id="followUpTaskTime" style="min-width:100px;" title="時刻（任意）">
+          </div>
+          <div class="fu-task-quick">
+            <input type="text" class="search-input" id="followUpTaskContent" placeholder="やること（例: 再TEL、査定書を送付）" style="flex:1;min-width:180px;">
+            <select class="filter-select" id="followUpTaskAssignee" style="min-width:110px;" title="担当（空なら全員に通知）"></select>
+            <button type="button" class="btn btn-primary" id="btnFollowUpTaskAdd">ﾀｽｸ追加</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="fu-task-title" style="margin-bottom:4px;">📞 追客履歴</div>
+      <div class="table-container" style="max-height:240px;overflow-y:auto;">
         <table>
           <thead><tr><th>日時</th><th>結果</th><th>かけた人</th><th>ﾒﾓ</th><th></th></tr></thead>
           <tbody id="followUpHistoryBody"></tbody>
         </table>
-      </div>
-      <div class="form-group" style="margin-top:10px;">
-        <input type="text" class="search-input" id="followUpMemoInput" placeholder="ﾒﾓ（任意）— 次に押す結果ボタンと一緒に保存されます" style="width:100%;">
       </div>
       <div class="modal-actions">
         <button type="button" class="btn btn-outline" data-close="modalFollowUpHistory">閉じる</button>
@@ -6614,7 +6654,8 @@
       
       list.innerHTML = notifications.slice(0, 20).map((n) => {
         let icon = "🔔";
-        if (n.type === "status_change") icon = "🔄";
+        if (n.type === "task") icon = "📌";
+        else if (n.type === "status_change") icon = "🔄";
         else if (n.type === "price_change") icon = "💴";
         else if (n.type === "deadline_expired") icon = "⏰";
         
@@ -6622,7 +6663,7 @@
           <span class="notification-item-icon">${icon}</span>
           <div>
             <div class="notification-item-text">${n.message}</div>
-            <div class="notification-item-date">${n.address || ""}</div>
+            <div class="notification-item-date">${n.type === "task" ? escapeHtml(toHalfwidthKana((n.task.phone || "") + (n.task.property ? " " + n.task.property : ""))) : (n.address || "")}</div>
           </div>
         </div>`;
       }).join("");
@@ -6631,6 +6672,13 @@
       list.querySelectorAll(".notification-item").forEach((item) => {
         item.addEventListener("click", () => {
           const id = item.dataset.id;
+          // 追客タスクは既読にせず、該当顧客を開く（完了するまで残す）
+          const n = notifications.find((x) => x.id === id);
+          if (n && n.type === "task") {
+            el("notificationDropdown").classList.add("hidden");
+            jumpToCustomer(n.task.customer_id, n.task.category, n.task.year);
+            return;
+          }
           setReadNotification(id);
           item.classList.remove("unread");
           checkNotifications(false);
@@ -6642,11 +6690,30 @@
       const content = el("notificationModalContent");
       
       // 種類別に分類
+      const tasks = notifications.filter((n) => n.type === "task");
       const deadlines = notifications.filter((n) => n.type === "deadline" || n.type === "deadline_expired");
       const statusChanges = notifications.filter((n) => n.type === "status_change");
       const priceChanges = notifications.filter((n) => n.type === "price_change");
       
       let html = "";
+
+      if (tasks.length > 0) {
+        html += `<div class="notification-section">
+          <h4 class="notification-section-title">📌 本日の追客タスク (${tasks.length}件)</h4>
+          ${tasks.map((n) => {
+            const t = n.task;
+            const cls = n.overdue_days > 0 ? "task overdue" : "task";
+            return `<div class="notification-modal-item ${cls}" id="taskNotif_${t.id}">
+              <div class="task-body">
+                <strong>${formatTaskWhen(t)}</strong> ${escapeHtml(t.content)}<br>
+                <small>${escapeHtml(toHalfwidthKana(t.customer_name || "-"))} ${escapeHtml(toHalfwidthKana(t.phone || ""))} / ${escapeHtml(t.case_number || "")}${t.property ? " / " + escapeHtml(toHalfwidthKana(t.property)) : ""}${t.assigned_to ? " / 担当: " + escapeHtml(toHalfwidthKana(t.assigned_to)) : ""}</small>
+              </div>
+              <button type="button" class="fu-btn call" onclick="completeFollowUpTask(${t.id}).then(() => { const e = el('taskNotif_${t.id}'); if (e) e.remove(); })">完了</button>
+              <button type="button" class="fu-btn history" onclick="closeModal('modalNotifications'); jumpToCustomer('${t.customer_id}', '${t.category}', ${t.year})">開く</button>
+            </div>`;
+          }).join("")}
+        </div>`;
+      }
       
       if (deadlines.length > 0) {
         html += `<div class="notification-section">
@@ -6690,7 +6757,8 @@
       // モーダルを閉じたら既読にする
       const modal = el("modalNotifications");
       modal.querySelector("[data-close='modalNotifications']").addEventListener("click", () => {
-        notifications.forEach((n) => setReadNotification(n.id));
+        // タスクは完了するまでベルの未読に残す（既読にしない）
+        notifications.filter((n) => n.type !== "task").forEach((n) => setReadNotification(n.id));
         checkNotifications(false);
       }, { once: true });
     }
@@ -6701,7 +6769,7 @@
     }
     
     function clearAllNotifications() {
-      state.notifications.forEach((n) => setReadNotification(n.id));
+      state.notifications.filter((n) => n.type !== "task").forEach((n) => setReadNotification(n.id));
       checkNotifications(false);
       el("notificationDropdown").classList.add("hidden");
     }
@@ -6732,10 +6800,13 @@
       }
       
       // 通知をまとめて1つだけ送る
+      const taskCount = notifications.filter((n) => n.type === "task").length;
       const deadlineCount = notifications.filter((n) => n.type === "deadline" || n.type === "deadline_expired").length;
       const changeCount = notifications.filter((n) => n.type === "status_change" || n.type === "price_change").length;
       
       let body = "";
+      if (taskCount > 0) body += `追客タスク: ${taskCount}件
+`;
       if (deadlineCount > 0) body += `期限通知: ${deadlineCount}件
 `;
       if (changeCount > 0) body += `変更通知: ${changeCount}件`;
@@ -8919,7 +8990,7 @@
     // ============================================================
     // 追客モード（顧客管理）
     // ============================================================
-    const FOLLOW_UP_RESULT_LABELS = { "通話": "通話", "不在": "不在", "SMS": "SMS", "折り返し": "折返" };
+    const FOLLOW_UP_RESULT_LABELS = { "通話": "通話", "不在": "不在", "SMS": "SMS", "折り返し": "折返", "メモ": "ﾒﾓ" };
 
     function formatFollowUpAt(iso) {
       // 例: 09/22 11:05
@@ -8982,12 +9053,14 @@
         });
         const log = res.log;
 
-        // 顧客一覧（追客モード）の表示を更新
-        const prev = customerState.followUpLatest[customerId];
-        customerState.followUpLatest[customerId] = {
-          result: log.result, called_by: log.called_by, called_at: log.called_at,
-          count: (prev ? prev.count : 0) + 1,
-        };
+        // 顧客一覧（追客モード）の表示を更新（メモは架電結果ではないので最終追客には反映しない）
+        if (log.result !== "メモ") {
+          const prev = customerState.followUpLatest[customerId];
+          customerState.followUpLatest[customerId] = {
+            result: log.result, called_by: log.called_by, called_at: log.called_at,
+            count: (prev ? prev.count : 0) + 1,
+          };
+        }
         customerState.followUpJustSaved[customerId] = true;
         setTimeout(() => {
           delete customerState.followUpJustSaved[customerId];
@@ -9019,9 +9092,124 @@
       el("followUpHistoryTitle").textContent = `追客履歴${name ? " - " + name : ""}`;
       el("followUpHistoryActions").innerHTML = renderFollowUpButtons(customerId, category, year, { from: "history", withCallback: true, withHistory: false });
       el("followUpMemoInput").value = "";
+      resetFollowUpTaskForm(c);
       openModal("modalFollowUpHistory");
-      await renderFollowUpHistory(customerId);
+      await Promise.all([renderFollowUpHistory(customerId), renderFollowUpTasks(customerId)]);
     }
+
+    // ---- 次回タスク ----
+    function toLocalDateStr(d) {
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    }
+
+    function setFollowUpTaskDateOffset(days) {
+      const d = new Date(); d.setDate(d.getDate() + days);
+      el("followUpTaskDate").value = toLocalDateStr(d);
+      document.querySelectorAll("#modalFollowUpHistory [data-task-days]").forEach(b => b.classList.toggle("active", Number(b.dataset.taskDays) === days));
+    }
+
+    function resetFollowUpTaskForm(customer) {
+      setFollowUpTaskDateOffset(1); // 既定は「明日」
+      el("followUpTaskTime").value = "";
+      el("followUpTaskContent").value = "";
+      // 担当: マスターの担当者一覧。既定は顧客の担当（「*」付きは除去）
+      const sel = el("followUpTaskAssignee");
+      const staffList = (customerState.masters && customerState.masters.staff) || [];
+      sel.innerHTML = '<option value="">担当: 全員</option>' + staffList.map(n => `<option value="${escapeHtml(n)}">${toHalfwidthKana(n)}</option>`).join("");
+      const staff = (customer && customer.staff_id ? customer.staff_id : "").replace(/^[*＊\s　]+/, "");
+      if (staff && staffList.includes(staff)) sel.value = staff;
+      else if (state.currentUser && staffList.includes(state.currentUser)) sel.value = state.currentUser;
+    }
+
+    function formatTaskWhen(t) {
+      const today = toLocalDateStr(new Date());
+      let label = formatDateDisplay(t.due_date);
+      if (t.due_date === today) label = "今日";
+      else {
+        const tm = new Date(); tm.setDate(tm.getDate() + 1);
+        if (t.due_date === toLocalDateStr(tm)) label = "明日";
+      }
+      return t.due_time ? `${label} ${t.due_time}` : label;
+    }
+
+    async function renderFollowUpTasks(customerId) {
+      const list = el("followUpTaskList");
+      try {
+        const data = await apiFetch(`/api/follow-up-tasks/customer/${customerId}`);
+        const tasks = data.tasks || [];
+        if (tasks.length === 0) { list.innerHTML = '<div style="font-size:12px;color:var(--gray-500);">タスクはありません</div>'; return; }
+        const today = toLocalDateStr(new Date());
+        list.innerHTML = tasks.map(t => {
+          const done = !!t.done_at;
+          const overdue = !done && t.due_date < today;
+          return `<div class="fu-task-item ${done ? "done" : overdue ? "overdue" : ""}">
+            <span class="fu-task-when">${formatTaskWhen(t)}</span>
+            <div class="fu-task-body">
+              <div>${escapeHtml(t.content)}</div>
+              <div class="fu-task-meta">${t.assigned_to ? "担当: " + escapeHtml(toHalfwidthKana(t.assigned_to)) : "担当: 全員"} / 作成: ${escapeHtml(toHalfwidthKana(t.created_by || "-"))}${done ? ` / 完了: ${escapeHtml(toHalfwidthKana(t.done_by || ""))} ${formatFollowUpAt(t.done_at)}` : ""}</div>
+            </div>
+            ${done ? "" : `<button type="button" class="fu-btn call" onclick="completeFollowUpTask(${t.id}, '${customerId}')">完了</button>`}
+            <button type="button" class="btn btn-outline" style="padding:2px 6px;font-size:10px;color:var(--danger-color);border-color:var(--danger-color);" onclick="deleteFollowUpTask(${t.id}, '${customerId}')">削除</button>
+          </div>`;
+        }).join("");
+      } catch (err) {
+        list.innerHTML = '<div style="font-size:12px;color:var(--danger-color);">タスクの取得に失敗しました</div>';
+      }
+    }
+
+    async function addFollowUpTask() {
+      if (!followUpHistoryTarget) return;
+      const { customerId, category, year } = followUpHistoryTarget;
+      const content = el("followUpTaskContent").value.trim();
+      const dueDate = el("followUpTaskDate").value;
+      if (!content) { el("followUpTaskContent").focus(); return; }
+      if (!dueDate) { el("followUpTaskDate").focus(); return; }
+      try {
+        await apiFetch("/api/follow-up-tasks", {
+          method: "POST",
+          body: JSON.stringify({
+            customer_id: customerId, category, year, content, due_date: dueDate,
+            due_time: el("followUpTaskTime").value, assigned_to: el("followUpTaskAssignee").value,
+          }),
+        });
+        el("followUpTaskContent").value = "";
+        el("followUpTaskTime").value = "";
+        await renderFollowUpTasks(customerId);
+        checkNotifications(false);
+      } catch (err) {
+        alert("タスクの追加に失敗しました: " + (err.message || err));
+      }
+    }
+
+    async function completeFollowUpTask(taskId, customerId) {
+      try {
+        await apiFetch(`/api/follow-up-tasks/${taskId}/done`, { method: "POST" });
+        if (customerId) await renderFollowUpTasks(customerId);
+        checkNotifications(false);
+      } catch (err) {
+        alert("完了にできませんでした: " + (err.message || err));
+      }
+    }
+
+    async function deleteFollowUpTask(taskId, customerId) {
+      if (!confirm("このタスクを削除しますか？")) return;
+      try {
+        await apiFetch(`/api/follow-up-tasks/${taskId}`, { method: "DELETE" });
+        if (customerId) await renderFollowUpTasks(customerId);
+        checkNotifications(false);
+      } catch (err) {
+        alert("削除に失敗しました: " + (err.message || err));
+      }
+    }
+
+    document.querySelectorAll("#modalFollowUpHistory [data-task-days]").forEach(b => {
+      b.addEventListener("click", () => setFollowUpTaskDateOffset(Number(b.dataset.taskDays)));
+    });
+    el("followUpTaskDate").addEventListener("change", () => {
+      document.querySelectorAll("#modalFollowUpHistory [data-task-days]").forEach(b => b.classList.remove("active"));
+    });
+    el("btnFollowUpTaskAdd").addEventListener("click", addFollowUpTask);
+    el("followUpTaskContent").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addFollowUpTask(); } });
 
     async function renderFollowUpHistory(customerId) {
       const body = el("followUpHistoryBody");
@@ -9033,7 +9221,7 @@
           body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--gray-500);padding:16px;">追客履歴はありません</td></tr>';
           return;
         }
-        body.innerHTML = logs.map(l => `<tr>
+        body.innerHTML = logs.map(l => `<tr class="${l.result === "メモ" ? "fu-memo-row" : ""}">
           <td style="white-space:nowrap;">${formatDateTimeDisplay(l.called_at)}</td>
           <td>${renderFollowUpResultBadge(l.result)}</td>
           <td style="white-space:nowrap;">${escapeHtml(toHalfwidthKana(l.called_by || "-"))}</td>
@@ -9061,6 +9249,17 @@
     }
 
     el("btnFollowUpMode").addEventListener("click", toggleFollowUpMode);
+
+    // メモ単独追加（結果ボタンを押さずに随時追記）
+    async function addFollowUpMemo() {
+      if (!followUpHistoryTarget) return;
+      const input = el("followUpMemoInput");
+      if (!input.value.trim()) { input.focus(); return; }
+      const { customerId, category, year } = followUpHistoryTarget;
+      await recordFollowUp(customerId, category, year, "メモ", { from: "history" });
+    }
+    el("btnFollowUpMemoAdd").addEventListener("click", addFollowUpMemo);
+    el("followUpMemoInput").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addFollowUpMemo(); } });
 
     // ============================================================
     // 折り返し照合ページ

@@ -102,3 +102,19 @@ CREATE TABLE public.record_locks (
   CONSTRAINT follow_up_logs_pkey PRIMARY KEY (id),
   CONSTRAINT follow_up_logs_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(id) ON DELETE CASCADE
 );
+CREATE TABLE public.follow_up_tasks (
+  id bigint NOT NULL DEFAULT nextval('follow_up_tasks_id_seq'::regclass),
+  customer_id uuid NOT NULL,
+  category text NOT NULL,
+  year integer NOT NULL,
+  due_date date NOT NULL,
+  due_time text,
+  content text NOT NULL,
+  assigned_to text,
+  created_by text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  done_at timestamp with time zone,
+  done_by text,
+  CONSTRAINT follow_up_tasks_pkey PRIMARY KEY (id),
+  CONSTRAINT follow_up_tasks_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES public.customers(id) ON DELETE CASCADE
+);

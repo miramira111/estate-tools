@@ -1794,7 +1794,31 @@ def api_notifications():
                     })
 
     notifications.sort(key=lambda x: x.get("date", ""), reverse=True)
-    return jsonify(notifications)
+
+    # 追客タスク（本日以前が期限・未完了・自分担当または担当未指定）
+    # 期限通知と同様に毎日IDが変わるので、完了するまで毎日通知される
+    try:
+        tasks = load_open_tasks_for_user(user, today)
+    except Exception as e:  # テーブル未作成などでも他の通知は返す
+        app.logger.warning("follow_up_tasks の取得に失敗: %s", e)
+        tasks = []
+    task_notifications = []
+    for t in tasks:
+        due = parse_date(t["due_date"])
+        overdue_days = (today - due).days if due else 0
+        when = "本日" if overdue_days <= 0 else f"{overdue_days}日前が期限"
+        if t.get("due_time"):
+            when += f" {t['due_time']}"
+        task_notifications.append({
+            "id": f"task_{t['id']}_{today.isoformat()}",
+            "type": "task",
+            "task": t,
+            "date": t["due_date"],
+            "overdue_days": max(overdue_days, 0),
+            "message": f"【追客タスク】{t.get('customer_name') or t.get('case_number')} - {t['content']}（{when}）",
+        })
+    # タスクを先頭に出す
+    return jsonify(task_notifications + notifications)
 
 
 # ------------------------------------------------------------
@@ -2852,7 +2876,9 @@ def api_export_customers(category, year):
 # ------------------------------------------------------------
 # 追客ログ（follow_up_logs テーブル）
 # ------------------------------------------------------------
-FOLLOW_UP_RESULTS = ("通話", "不在", "SMS", "折り返し")
+FOLLOW_UP_RESULTS = ("通話", "不在", "SMS", "折り返し", "メモ")
+# 「メモ」は架電結果ではないので、最終追客・不在リストの判定からは除外する
+FOLLOW_UP_CALL_RESULTS = ("通話", "不在", "SMS", "折り返し")
 FOLLOW_UP_CATEGORIES = ("sell", "buy", "investment")
 
 # 顧客一覧と結合して返すときに使う列（照合画面・不在リスト用）
@@ -2928,6 +2954,8 @@ def api_create_follow_up():
         return jsonify({"error": "無効なカテゴリです"}), 400
     if result not in FOLLOW_UP_RESULTS:
         return jsonify({"error": "無効な結果です"}), 400
+    if result == "メモ" and not memo:
+        return jsonify({"error": "メモを入力してください"}), 400
     try:
         year = int(year)
     except (TypeError, ValueError):
@@ -2994,7 +3022,7 @@ def api_follow_up_latest():
                     customer_id, result, called_by, called_at,
                     COUNT(*) OVER (PARTITION BY customer_id) AS cnt
                 FROM follow_up_logs
-                WHERE category = %s AND year = %s
+                WHERE category = %s AND year = %s AND result <> 'メモ'
                 ORDER BY customer_id, called_at DESC, id DESC
                 """,
                 (category, year),
@@ -3018,6 +3046,7 @@ FOLLOW_UP_LATEST_CTE = """
         SELECT customer_id, result, called_by, called_at,
                ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY called_at DESC, id DESC) AS rn
         FROM follow_up_logs
+        WHERE result <> 'メモ'
     ),
     latest AS (
         SELECT customer_id, result AS last_result, called_by AS last_called_by, called_at AS last_called_at
@@ -3091,6 +3120,162 @@ def api_follow_up_lookup():
     for c in customers:
         c["logs"] = load_follow_up_history(c["customer_id"], limit=5)
     return jsonify({"digits": digits, "customers": customers})
+
+
+# ------------------------------------------------------------
+# 追客タスク（follow_up_tasks テーブル）
+# ------------------------------------------------------------
+def follow_up_task_row_to_dict(row):
+    d = {
+        "id": row["id"],
+        "customer_id": str(row["customer_id"]),
+        "category": row["category"],
+        "year": row["year"],
+        "due_date": format_date(row["due_date"]),
+        "due_time": row.get("due_time") or "",
+        "content": row.get("content") or "",
+        "assigned_to": row.get("assigned_to") or "",
+        "created_by": row.get("created_by") or "",
+        "created_at": format_datetime(row.get("created_at")),
+        "done_at": format_datetime(row.get("done_at")),
+        "done_by": row.get("done_by") or "",
+    }
+    # 顧客情報を結合して取得した場合
+    if "customer_name" in row:
+        d["customer_name"] = row.get("customer_name") or ""
+        d["phone"] = row.get("phone") or ""
+        d["case_number"] = row.get("case_number") or ""
+        d["staff_id"] = row.get("staff_id") or ""
+        d["property"] = row.get("assessment_address") or row.get("target_property") or row.get("desired_property") or ""
+    return d
+
+
+FOLLOW_UP_TASK_SELECT = """
+    SELECT t.*, c.customer_name, c.phone, c.case_number, c.staff_id,
+           c.assessment_address, c.target_property, c.desired_property
+    FROM follow_up_tasks t
+    JOIN customers c ON c.id = t.customer_id
+"""
+
+
+def load_open_tasks_for_user(user, today):
+    """当日以前が期限で未完了のタスク（自分担当 or 担当未指定）"""
+    me = normalize_staff_name(user)
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                FOLLOW_UP_TASK_SELECT + """
+                WHERE t.done_at IS NULL AND t.due_date <= %s
+                ORDER BY t.due_date ASC, t.due_time ASC NULLS LAST, t.id ASC
+                """,
+                (today,),
+            )
+            rows = cur.fetchall()
+    tasks = []
+    for r in rows:
+        assigned = normalize_staff_name(r.get("assigned_to"))
+        if assigned and assigned != me:
+            continue
+        tasks.append(follow_up_task_row_to_dict(r))
+    return tasks
+
+
+@app.route("/api/follow-up-tasks", methods=["POST"])
+@login_required
+def api_create_follow_up_task():
+    payload = request.get_json() or {}
+    customer_id = payload.get("customer_id")
+    category = payload.get("category")
+    content = (payload.get("content") or "").strip()
+    due_date = parse_date(payload.get("due_date"))
+    due_time = (payload.get("due_time") or "").strip() or None
+    assigned_to = (payload.get("assigned_to") or "").strip() or None
+    try:
+        year = int(payload.get("year"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "無効な年度です"}), 400
+
+    if category not in FOLLOW_UP_CATEGORIES:
+        return jsonify({"error": "無効なカテゴリです"}), 400
+    if not content:
+        return jsonify({"error": "内容を入力してください"}), 400
+    if not due_date:
+        return jsonify({"error": "対応予定日を指定してください"}), 400
+    if due_time and not re.fullmatch(r"\d{1,2}:\d{2}", due_time):
+        return jsonify({"error": "時刻の形式が不正です"}), 400
+
+    customer = get_customer_by_id(category, year, customer_id)
+    if not customer:
+        return jsonify({"error": "顧客が見つかりません"}), 404
+
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO follow_up_tasks (customer_id, category, year, due_date, due_time, content, assigned_to, created_by)
+                VALUES (%s::uuid, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING *
+                """,
+                (customer_id, category, year, due_date, due_time, content, assigned_to, session.get("user_id", "")),
+            )
+            row = cur.fetchone()
+        conn.commit()
+    return jsonify({"ok": True, "task": follow_up_task_row_to_dict(row)})
+
+
+@app.route("/api/follow-up-tasks/customer/<customer_id>", methods=["GET"])
+@login_required
+def api_follow_up_tasks_for_customer(customer_id):
+    """顧客1件分のタスク（未完了を先に、その後に完了済み最新10件）"""
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT * FROM follow_up_tasks WHERE customer_id = %s::uuid
+                ORDER BY (done_at IS NOT NULL), due_date ASC, due_time ASC NULLS LAST, id ASC
+                LIMIT 30
+                """,
+                (customer_id,),
+            )
+            rows = cur.fetchall()
+    return jsonify({"tasks": [follow_up_task_row_to_dict(r) for r in rows]})
+
+
+@app.route("/api/follow-up-tasks/open", methods=["GET"])
+@login_required
+def api_follow_up_tasks_open():
+    """自分の未完了タスク（本日以前＝要対応）"""
+    today = datetime.now().date()
+    return jsonify({"tasks": load_open_tasks_for_user(session.get("user_id", ""), today), "today": today.isoformat()})
+
+
+@app.route("/api/follow-up-tasks/<int:task_id>/done", methods=["POST"])
+@login_required
+def api_follow_up_task_done(task_id):
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "UPDATE follow_up_tasks SET done_at = NOW(), done_by = %s WHERE id = %s AND done_at IS NULL RETURNING *",
+                (session.get("user_id", ""), task_id),
+            )
+            row = cur.fetchone()
+        conn.commit()
+    if row is None:
+        return jsonify({"error": "タスクが見つからないか、既に完了しています"}), 404
+    return jsonify({"ok": True, "task": follow_up_task_row_to_dict(row)})
+
+
+@app.route("/api/follow-up-tasks/<int:task_id>", methods=["DELETE"])
+@login_required
+def api_follow_up_task_delete(task_id):
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM follow_up_tasks WHERE id = %s RETURNING id", (task_id,))
+            row = cur.fetchone()
+        conn.commit()
+    if row is None:
+        return jsonify({"error": "タスクが見つかりません"}), 404
+    return jsonify({"ok": True})
 
 
 # ------------------------------------------------------------
