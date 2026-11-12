@@ -1673,11 +1673,12 @@ def build_cover_xlsm(contract):
         "AD6": contract.get("売主連絡先") or "",
         "G7": contract.get("売主住所") or "",
         "AD7": contract.get("反響媒体") or "",
-        # チェック項目1「媒介契約書締結」の日付（令和）
-        "X10": signed_date.year - 2018 if signed_date else None,
-        "Z10": signed_date.month if signed_date else None,
-        "AB10": signed_date.day if signed_date else None,
     }
+    # チェック項目1「媒介契約書締結」・2「媒介契約書交付」の日付（令和）
+    for row in (10, 11):
+        values[f"X{row}"] = signed_date.year - 2018 if signed_date else None
+        values[f"Z{row}"] = signed_date.month if signed_date else None
+        values[f"AB{row}"] = signed_date.day if signed_date else None
 
     # レインズ登録期日・更新期日（G12, G14〜G21）はサーバーで計算した値を入れる
     formula_texts = {"G12": reins_deadline_text(signed_date, contract_type)}
