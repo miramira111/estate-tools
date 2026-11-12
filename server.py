@@ -1582,6 +1582,64 @@ def _set_xlsx_cell(sheet_xml, ref, value):
     return sheet_xml[:m.start()] + cell + sheet_xml[m.end():]
 
 
+def _set_formula_cached_text(sheet_xml, ref, text):
+    """数式セルは残したまま、表示用のキャッシュ値だけを差し替える
+    （ダウンロードファイルはマクロがブロックされるため、計算済みの値を入れておく）"""
+    pattern = re.compile(r'(<c r="%s"[^>]*>(?:(?!</c>).)*?<v>)(?:(?!</v>).)*(</v>)' % ref, re.S)
+    new_xml, count = pattern.subn(lambda m: m.group(1) + _xml_escape(text) + m.group(2), sheet_xml, count=1)
+    if count != 1:
+        raise ValueError(f"表紙テンプレートの数式セル {ref} が見つかりません")
+    return new_xml
+
+
+# --- 表紙マクロ(Module1)と同じ期日計算 ---
+def _reiwa_text(d):
+    return f"R {d.year - 2018}年{d.month}月{d.day}日"
+
+
+def calc_reins_deadline(contract_date, contract_type):
+    """レインズ登録期日: 翌日から火・水を除いた営業日で 専属5日 / 専任7日（一般はなし）"""
+    required = {"専属": 5, "専任": 7}.get(contract_type)
+    if not contract_date or not required:
+        return None
+    current = contract_date + timedelta(days=1)
+    count = 0
+    while True:
+        if current.weekday() not in (1, 2):  # 火=1, 水=2
+            count += 1
+        if count >= required:
+            return current
+        current += timedelta(days=1)
+
+
+def _last_day_of_month(year, month):
+    import calendar
+    return calendar.monthrange(year, month)[1]
+
+
+def calc_renewal_deadline(contract_date, months):
+    """更新期日: Nヶ月後の同日の前日（締結日が月末ならNヶ月後の月末の前日）"""
+    total = contract_date.month - 1 + months
+    year, month = contract_date.year + total // 12, total % 12 + 1
+    last = _last_day_of_month(year, month)
+    if contract_date.day == _last_day_of_month(contract_date.year, contract_date.month):
+        return date(year, month, last) - timedelta(days=1)
+    return date(year, month, min(contract_date.day, last)) - timedelta(days=1)
+
+
+def reins_deadline_text(contract_date, contract_type):
+    d = calc_reins_deadline(contract_date, contract_type)
+    return f"レインズ登録（期日：{_reiwa_text(d)}）" if d else "レインズ登録（期日：R　年　月　日）"
+
+
+def renewal_deadline_text(num, contract_date, months):
+    circled = "①②③④⑤⑥⑦⑧"[num - 1] if 1 <= num <= 8 else "?"
+    if not contract_date:
+        return f"{circled}更新期日（{months}ヶ月後）（R　　年　　月　　日）"
+    d = calc_renewal_deadline(contract_date, months)
+    return f"{circled}更新期日（{months}ヶ月後）（{_reiwa_text(d)}）"
+
+
 def build_cover_xlsm(contract):
     """契約データから媒介契約書表紙(.xlsm)のバイト列を作る"""
     import zipfile
@@ -1621,6 +1679,11 @@ def build_cover_xlsm(contract):
         "AB10": signed_date.day if signed_date else None,
     }
 
+    # レインズ登録期日・更新期日（G12, G14〜G21）はサーバーで計算した値を入れる
+    formula_texts = {"G12": reins_deadline_text(signed_date, contract_type)}
+    for num in range(1, 9):
+        formula_texts[f"G{13 + num}"] = renewal_deadline_text(num, signed_date, num * 3)
+
     out = io.BytesIO()
     with zipfile.ZipFile(COVER_TEMPLATE_PATH) as zin, \
             zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
@@ -1630,13 +1693,9 @@ def build_cover_xlsm(contract):
                 sheet_xml = data.decode("utf-8")
                 for ref, value in values.items():
                     sheet_xml = _set_xlsx_cell(sheet_xml, ref, value)
+                for ref, text in formula_texts.items():
+                    sheet_xml = _set_formula_cached_text(sheet_xml, ref, text)
                 data = sheet_xml.encode("utf-8")
-            elif item.filename == "xl/workbook.xml":
-                # 開いた時にレインズ期限などのマクロ関数を再計算させる
-                wb_xml = data.decode("utf-8")
-                if "fullCalcOnLoad" not in wb_xml:
-                    wb_xml = re.sub(r"<calcPr\b", '<calcPr fullCalcOnLoad="1"', wb_xml, count=1)
-                data = wb_xml.encode("utf-8")
             zout.writestr(item, data)
     return out.getvalue()
 
