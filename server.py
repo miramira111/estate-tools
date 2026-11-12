@@ -1551,6 +1551,119 @@ def api_create_contract():
     return jsonify({"ok": True, "contract": payload}), 201
 
 
+# ------------------------------------------------------------
+# 媒介契約書表紙（チェックリスト）出力
+# ------------------------------------------------------------
+COVER_TEMPLATE_PATH = os.path.join(BASE_DIR, "templates_xlsx", "baikai_cover.xlsm")
+COVER_SHEET_XML = "xl/worksheets/sheet1.xml"
+
+
+def _xml_escape(text):
+    return (str(text).replace("&", "&amp;").replace("<", "&lt;")
+            .replace(">", "&gt;").replace('"', "&quot;"))
+
+
+def _set_xlsx_cell(sheet_xml, ref, value):
+    """シートXML内の既存セルの値だけを差し替える（書式sはそのまま）"""
+    pattern = re.compile(
+        r'<c r="%s"((?:\s+[\w:]+="[^"]*")*)\s*(?:/>|>(?:(?!</c>).)*</c>)' % ref, re.S
+    )
+    m = pattern.search(sheet_xml)
+    if not m:
+        raise ValueError(f"表紙テンプレートにセル {ref} がありません")
+    attrs = re.sub(r'\s+t="[^"]*"', "", m.group(1))
+    if value is None or value == "":
+        cell = f'<c r="{ref}"{attrs}/>'
+    elif isinstance(value, (int, float)) and not isinstance(value, bool):
+        cell = f'<c r="{ref}"{attrs}><v>{value}</v></c>'
+    else:
+        cell = (f'<c r="{ref}"{attrs} t="inlineStr"><is>'
+                f'<t xml:space="preserve">{_xml_escape(value)}</t></is></c>')
+    return sheet_xml[:m.start()] + cell + sheet_xml[m.end():]
+
+
+def build_cover_xlsm(contract):
+    """契約データから媒介契約書表紙(.xlsm)のバイト列を作る"""
+    import zipfile
+
+    signed_date = parse_date((contract.get("新規媒介締結日") or "")[:10])
+
+    contract_type = contract.get("種別") or ""
+    if contract_type in ("専属専任", "専属専任媒介"):
+        contract_type = "専属"
+    elif contract_type.endswith("媒介"):
+        contract_type = contract_type[:-2]
+
+    price = contract.get("現在の媒介価格")
+    try:
+        price = float(price) if price not in (None, "") else None
+        if price is not None and price.is_integer():
+            price = int(price)
+    except (TypeError, ValueError):
+        pass
+
+    values = {
+        "AF1": contract.get("担当") or "",
+        "G3": contract.get("id") or "",
+        "AD3": (signed_date - date(1899, 12, 30)).days if signed_date else None,
+        "G4": price,
+        "AD4": contract_type,
+        "G5": contract.get("物件所在地") or "",
+        "AD5": contract.get("物件種別") or "",
+        "G6": (f'{contract.get("売主")}様' if contract.get("売主") and not str(contract.get("売主")).endswith("様")
+               else contract.get("売主") or ""),
+        "AD6": contract.get("売主連絡先") or "",
+        "G7": contract.get("売主住所") or "",
+        "AD7": contract.get("反響媒体") or "",
+        # チェック項目1「媒介契約書締結」の日付（令和）
+        "X10": signed_date.year - 2018 if signed_date else None,
+        "Z10": signed_date.month if signed_date else None,
+        "AB10": signed_date.day if signed_date else None,
+    }
+
+    out = io.BytesIO()
+    with zipfile.ZipFile(COVER_TEMPLATE_PATH) as zin, \
+            zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
+        for item in zin.infolist():
+            data = zin.read(item.filename)
+            if item.filename == COVER_SHEET_XML:
+                sheet_xml = data.decode("utf-8")
+                for ref, value in values.items():
+                    sheet_xml = _set_xlsx_cell(sheet_xml, ref, value)
+                data = sheet_xml.encode("utf-8")
+            elif item.filename == "xl/workbook.xml":
+                # 開いた時にレインズ期限などのマクロ関数を再計算させる
+                wb_xml = data.decode("utf-8")
+                if "fullCalcOnLoad" not in wb_xml:
+                    wb_xml = re.sub(r"<calcPr\b", '<calcPr fullCalcOnLoad="1"', wb_xml, count=1)
+                data = wb_xml.encode("utf-8")
+            zout.writestr(item, data)
+    return out.getvalue()
+
+
+@app.route("/api/contracts/<contract_id>/cover", methods=["GET"])
+@login_required
+def api_contract_cover(contract_id):
+    contract = find_contract(contract_id)
+    if not contract:
+        return jsonify({"error": "契約が見つかりません"}), 404
+    try:
+        content = build_cover_xlsm(contract)
+    except Exception as exc:
+        print(f"[cover] 表紙出力エラー {contract_id}: {exc}")
+        return jsonify({"error": f"表紙の出力に失敗しました: {exc}"}), 500
+    filename = f"媒介契約書表紙_{contract_id}.xlsm"
+    quoted = urllib.parse.quote(filename)
+    return Response(
+        content,
+        mimetype="application/vnd.ms-excel.sheet.macroEnabled.12",
+        headers={
+            "Content-Disposition": f"attachment; filename=\"baikai_cover.xlsm\"; filename*=UTF-8''{quoted}",
+            "Cache-Control": "no-store",
+        },
+    )
+
+
 @app.route("/api/purchases", methods=["POST"])
 @login_required
 def api_create_purchase():
